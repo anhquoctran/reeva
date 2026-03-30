@@ -1,0 +1,84 @@
+<div 
+  x-data="{ 
+    toasts: [],
+    addToast(message, type = 'success') {
+      const id = Date.now()
+      this.toasts.push({ id, message, type, visible: true })
+      setTimeout(() => this.removeToast(id), 5000)
+    },
+    removeToast(id) {
+      const index = this.toasts.findIndex(t => t.id === id)
+      if (index !== -1) {
+        this.toasts[index].visible = false
+        setTimeout(() => {
+          this.toasts = this.toasts.filter(t => t.id !== id)
+        }, 300)
+      }
+    }
+  }"
+  @toast.window="addToast($event.detail.message, $event.detail.type)"
+  class="fixed top-0 right-0 p-6 z-[9999] flex flex-col gap-4 w-full max-w-sm pointer-events-none"
+>
+  <template x-for="toast in toasts" :key="toast.id">
+    <div 
+      x-show="toast.visible"
+      x-transition:enter="transform ease-out duration-300 transition"
+      x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+      x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+      x-transition:leave="transition ease-in duration-200"
+      x-transition:leave-start="opacity-100"
+      x-transition:leave-end="opacity-0"
+      class="bg-white border rounded-2xl shadow-xl p-4 flex items-start gap-4 pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden"
+      :class="{
+        'border-green-100 bg-green-50/10': toast.type === 'success',
+        'border-red-100 bg-red-50/10': toast.type === 'error',
+        'border-blue-100 bg-blue-50/10': toast.type === 'info',
+        'border-yellow-100 bg-yellow-50/10': toast.type === 'warning'
+      }"
+    >
+      <div class="flex-shrink-0">
+        <template x-if="toast.type === 'success'">
+          <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          </div>
+        </template>
+        <template x-if="toast.type === 'error'">
+          <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </div>
+        </template>
+        <template x-if="toast.type === 'info'">
+          <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          </div>
+        </template>
+        <template x-if="toast.type === 'warning'">
+          <div class="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+          </div>
+        </template>
+      </div>
+      <div class="flex-1 pt-1">
+        <p class="text-sm font-bold text-gray-900" x-text="toast.type.charAt(0).toUpperCase() + toast.type.slice(1) + '!'"></p>
+        <p class="text-xs text-gray-500 mt-1" x-text="toast.message"></p>
+      </div>
+      <button @click="removeToast(toast.id)" class="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-900 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+  </template>
+
+  {{-- Inject initial toasts from flash messages --}}
+  @if(flashMessages.has('success'))
+    <div x-init="() => { setTimeout(() => addToast('{{ flashMessages.get('success') }}', 'success'), 100) }"></div>
+  @endif
+  @if(flashMessages.has('error'))
+    <div x-init="() => { setTimeout(() => addToast('{{ flashMessages.get('error') }}', 'error'), 100) }"></div>
+  @endif
+  @if(flashMessages.has('info'))
+    <div x-init="() => { setTimeout(() => addToast('{{ flashMessages.get('info') }}', 'info'), 100) }"></div>
+  @endif
+  @if(flashMessages.has('warning'))
+    <div x-init="() => { setTimeout(() => addToast('{{ flashMessages.get('warning') }}', 'warning'), 100) }"></div>
+  @endif
+</div>

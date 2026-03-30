@@ -1,0 +1,96 @@
+@cms.layout({ title: 'Create Version' })
+  <div class="max-w-4xl mx-auto space-y-8">
+     <!-- Breadcrumbs -->
+    <div class="flex items-center gap-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest pl-1">
+      <a href="{{ route('cms.versions.index') }}" class="hover:text-brand-600 transition-colors">Versions</a>
+      <span>/</span>
+      <span class="text-gray-900">New Release</span>
+    </div>
+
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 italic">Create New Version</h1>
+      <p class="text-gray-500 text-sm mt-1">Register a new release to begin the deployment lifecycle.</p>
+    </div>
+
+    <div class="card-premium p-8">
+      @form({ action: route('cms.versions.store'), method: 'POST' })
+        <div class="space-y-8">
+          
+          <!-- Semantic Versioning Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Major</label>
+               <input type="number" name="major" class="input-base text-lg font-bold py-3 text-center" placeholder="1" required />
+            </div>
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Minor</label>
+               <input type="number" name="minor" class="input-base text-lg font-bold py-3 text-center" placeholder="0" required />
+            </div>
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Patch</label>
+               <input type="number" name="patch" class="input-base text-lg font-bold py-3 text-center" placeholder="0" required />
+            </div>
+             <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Is Stable?</label>
+                <div class="flex items-center h-[54px] px-4 bg-gray-50 border border-gray-100 rounded-xl transition-colors hover:bg-white cursor-pointer group">
+                  <input type="checkbox" name="isActive" class="w-5 h-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer" />
+                  <span class="ml-3 text-xs font-bold text-gray-500 group-hover:text-gray-900 transition-colors">Visible to Clients</span>
+                </div>
+            </div>
+          </div>
+
+          <!-- Metadata Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-gray-50">
+             <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Release Codename</label>
+               <input type="text" name="codename" class="input-base font-medium py-3" placeholder="e.g. Phoenix Rising" />
+            </div>
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Release Date</label>
+               <input type="date" name="releaseDate" class="input-base py-3" />
+            </div>
+          </div>
+
+          <!-- Changelogs -->
+          <div class="space-y-2 pt-2 border-t border-gray-50">
+             <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Changelogs & Release Notes (Markdown Supported)</label>
+             <div class="prose-editor">
+               <textarea name="changelogs" id="changelogsEditor" rows="6" placeholder="Summarize changes..."></textarea>
+             </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="pt-10 border-t border-gray-50 flex items-center justify-between">
+             <a href="{{ route('cms.versions.index') }}" class="text-sm font-medium text-gray-400 hover:text-gray-900 transition-colors">Cancel & Return</a>
+             <button type="submit" class="btn-primary px-10 py-5 shadow-lg shadow-brand-100 rounded-2xl transform active:scale-95 duration-75">
+               Register Release
+             </button>
+          </div>
+
+        </div>
+      @end
+    </div>
+
+  </div>
+
+  <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+  <style>
+    .prose-editor .editor-toolbar { border-color: #f3f4f6; border-radius: 1rem 1rem 0 0; background-color: #f9fafb; opacity: 0.9; padding: 0.5rem; }
+    .prose-editor .editor-toolbar button { color: #6b7280; border-radius: 0.5rem; transition: all 0.2s; }
+    .prose-editor .editor-toolbar button.active, .prose-editor .editor-toolbar button:hover { background-color: #e5e7eb; border-color: transparent; }
+    .prose-editor .CodeMirror { border-color: #f3f4f6; border-radius: 0 0 1rem 1rem; font-family: 'Inter', sans-serif; font-size: 0.875rem; min-height: 200px; padding: 1rem; color: #111827; }
+    .prose-editor .CodeMirror-focused { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1); }
+  </style>
+  <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      new EasyMDE({ 
+        element: document.getElementById('changelogsEditor'),
+        spellChecker: false,
+        status: false,
+        placeholder: "Describe the new features, bug fixes, and improvements in this release...",
+        toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "code", "preview"]
+      });
+    });
+  </script>
+@end

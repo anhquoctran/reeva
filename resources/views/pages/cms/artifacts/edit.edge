@@ -1,0 +1,95 @@
+@cms.layout({ title: 'Edit Artifact' })
+  <div class="max-w-4xl mx-auto space-y-8">
+    <div class="flex items-center gap-4">
+      <a href="{{ route('cms.artifacts.index') }}" class="text-gray-400 hover:text-gray-900 transition-colors">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+      </a>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Edit Metadata <span class="text-gray-400 font-mono text-xs">#{{ artifact.id.slice(0, 8) }}</span></h1>
+        <p class="text-gray-500 text-sm mt-1">Modify platform context or file information for this release binary.</p>
+      </div>
+    </div>
+
+    <div class="card-premium p-8 shadow-xl shadow-brand-50/50">
+      <form action="{{ route('cms.artifacts.update', { id: artifact.id }) }}" method="POST" class="space-y-6">
+        {{ csrfField() }}
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Display File Name (Auto-Generated)</label>
+            <input type="text" value="{{ artifact.fileName }}" class="input-base bg-gray-50/80 cursor-not-allowed border-gray-100 text-gray-400" disabled readonly />
+            <p class="px-1 text-[9px] text-gray-400 italic font-medium italic">This field is automatically managed based on release metadata.</p>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Software Version</label>
+            <select name="versionId" class="input-base" required>
+              @each(v in versions)
+                <option value="{{ v.id }}" {{ (old('versionId') || artifact.versionId) === v.id ? 'selected' : '' }}>
+                   {{ v.major }}.{{ v.minor }}.{{ v.patch }} {{ v.codename ? `(${v.codename})` : '' }}
+                </option>
+              @end
+            </select>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Target Platform</label>
+            <div class="grid grid-cols-3 gap-3">
+              @each(p in platforms)
+                <label class="relative flex flex-col items-center justify-center p-3 border border-gray-100 rounded-xl cursor-pointer hover:bg-brand-50/50 transition-colors group">
+                  <input type="radio" name="platformId" value="{{ p.id }}" 
+                         class="sr-only peer" required 
+                         {{ (old('platformId') || artifact.platformId) === p.id ? 'checked' : '' }} />
+                  <div class="w-2 h-2 rounded-full absolute top-2 right-2 border border-gray-300 peer-checked:bg-brand-600 peer-checked:border-brand-600 transition-all scale-0 peer-checked:scale-100"></div>
+                  <div class="mb-2 text-gray-400 peer-checked:text-brand-600 group-hover:text-brand-500 transition-colors">
+                    @!cms.platformIcon({ name: p.name, class: 'w-6 h-6' })
+                  </div>
+                  <div class="absolute inset-0 border-2 border-transparent peer-checked:border-brand-600 rounded-xl pointer-events-none transition-all"></div>
+                </label>
+              @end
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Target Architecture</label>
+            <div class="grid grid-cols-3 gap-3">
+              @each(a in architectures)
+                <label class="relative flex flex-col items-center justify-center p-3 border border-gray-100 rounded-xl cursor-pointer hover:bg-brand-50/50 transition-colors group">
+                  <input type="radio" name="architectureId" value="{{ a.id }}" 
+                         class="sr-only peer" required 
+                         {{ (old('architectureId') || artifact.architectureId) === a.id ? 'checked' : '' }} />
+                  <div class="w-2 h-2 rounded-full absolute top-2 right-2 border border-gray-300 peer-checked:bg-brand-600 peer-checked:border-brand-600 transition-all scale-0 peer-checked:scale-100"></div>
+                  <span class="text-xs font-bold text-gray-700 peer-checked:text-brand-900 group-hover:text-brand-700">{{ a.displayName }}</span>
+                  <div class="absolute inset-0 border-2 border-transparent peer-checked:border-brand-600 rounded-xl pointer-events-none transition-all"></div>
+                </label>
+              @end
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Release Channel</label>
+            <select name="channel" class="input-base py-3" required>
+              <option value="stable" {{ (old('channel') || artifact.channel) === 'stable' ? 'selected' : '' }}>Stable (Production)</option>
+              <option value="beta" {{ (old('channel') || artifact.channel) === 'beta' ? 'selected' : '' }}>Beta (Testing)</option>
+              <option value="dev" {{ (old('channel') || artifact.channel) === 'dev' ? 'selected' : '' }}>Dev (Bleeding Edge)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-gray-50 flex items-center gap-4">
+           <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" name="isArchived" class="sr-only peer" {{ (old('isArchived') || artifact.isArchived) ? 'checked' : '' }}>
+              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none ring-4 ring-transparent peer-checked:ring-brand-100 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+              <span class="ml-3 text-sm font-semibold text-gray-700">Archived Status</span>
+           </label>
+           <p class="text-[10px] text-gray-400 italic">Marking as archived will hide this binary from normal selection but keep the record.</p>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-4">
+          <a href="{{ route('cms.artifacts.index') }}" class="px-6 py-2.5 text-sm font-bold text-gray-400 hover:text-gray-900 transition-colors">Discard</a>
+          <button type="submit" class="btn-primary px-10 shadow-lg shadow-brand-100">Update Artifact</button>
+        </div>
+      </form>
+    </div>
+  </div>
+@end

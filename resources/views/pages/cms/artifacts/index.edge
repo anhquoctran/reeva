@@ -1,0 +1,477 @@
+@cms.layout({ title: 'Artifact Management' })
+  <div class="space-y-8" x-data="{ 
+    showDeleteModal: false, 
+    deleteId: '', 
+    deleteName: '', 
+    confirmText: '',
+    showDetailsModal: false,
+    detailsLoading: false,
+    artifact: null,
+    history: null,
+    historyPage: 1,
+    
+    openDeleteModal(id, name) {
+      this.deleteId = id;
+      this.deleteName = name;
+      this.confirmText = '';
+      this.showDeleteModal = true;
+    },
+
+    async openDetailsModal(id) {
+      this.showDetailsModal = true;
+      this.detailsLoading = true;
+      this.historyPage = 1;
+      await this.fetchDetails(id, 1);
+    },
+
+    async fetchDetails(id, page) {
+      this.detailsLoading = true;
+      try {
+        const response = await fetch(`{{ route('cms.artifacts.index') }}/${id}/details?page=${page}`);
+        const data = await response.json();
+        this.artifact = data.artifact;
+        this.history = data.history;
+        this.historyPage = page;
+      } catch (err) {
+        console.error('Failed to fetch details:', err);
+      } finally {
+        this.detailsLoading = false;
+      }
+    },
+
+    formatBytes(bytes) {
+      if (!bytes) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    },
+
+    formatDate(iso) {
+      if (!iso) return '-';
+      return new Date(iso).toLocaleString('en-GB', { 
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+  }">
+    <!-- Header Section -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Artifact Management</h1>
+        <p class="text-gray-500 text-sm mt-1">Upload and manage your binary releases across platforms.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <form action="{{ route('cms.artifacts.rebuild-all') }}" method="POST">
+          {{ csrfField() }}
+          <button type="submit" 
+                  class="btn-secondary px-4 py-2 text-xs font-bold flex items-center gap-2 border-gray-200 hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm"
+                  title="Rebuild names for ALL artifacts based on current settings">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            Sync All Names
+          </button>
+        </form>
+        <a href="{{ route('cms.artifacts.create') }}" class="btn-primary px-6 shadow-sm shadow-brand-200">
+          Create New Artifact
+        </a>
+      </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="card-premium p-6">
+      <form action="{{ route('cms.artifacts.index') }}" method="GET" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">File Name</label>
+            <input type="text" name="fileName" value="{{ filters.fileName || '' }}" class="input-base text-xs py-2" placeholder="Search file..." />
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Version</label>
+            <select name="versionId" class="input-base text-xs py-2">
+              <option value="">All Versions</option>
+              @each(v in versions)
+                <option value="{{ v.id }}" {{ filters.versionId === v.id ? 'selected' : '' }}>
+                  {{ v.major }}.{{ v.minor }}.{{ v.patch }} {{ v.codename ? `(${v.codename})` : '' }}
+                </option>
+              @end
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Platform</label>
+            <select name="platformId" class="input-base text-xs py-2">
+              <option value="">All Platforms</option>
+              @each(p in platforms)
+                <option value="{{ p.id }}" {{ filters.platformId === p.id ? 'selected' : '' }}>{{ p.displayName }}</option>
+              @end
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Architecture</label>
+            <select name="architectureId" class="input-base text-xs py-2">
+              <option value="">All Architectures</option>
+              @each(a in architectures)
+                <option value="{{ a.id }}" {{ filters.architectureId === a.id ? 'selected' : '' }}>{{ a.displayName }}</option>
+              @end
+            </select>
+          </div>
+        </div>
+        
+        <div class="flex items-center justify-end gap-3 pt-2">
+          @if(filters.fileName || filters.versionId || filters.platformId || filters.architectureId)
+            <a href="{{ route('cms.artifacts.index') }}" class="text-xs text-gray-400 hover:text-gray-900 transition-colors font-semibold pr-2">Reset Filters</a>
+          @endif
+          <button type="submit" class="btn-primary py-2 px-8 text-xs font-bold tracking-tight shadow-md shadow-brand-100">Apply Filters</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Content Table -->
+    <div class="card-premium">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr class="bg-gray-50/50 border-b border-gray-100 uppercase tracking-wider text-[10px] font-bold text-gray-400">
+              <th class="px-6 py-4">#</th>
+              <th class="px-6 py-4">File Name</th>
+              <th class="px-6 py-4">Version</th>
+              <th class="px-6 py-4">System Context</th>
+              <th class="px-6 py-4">Downloads</th>
+              <th class="px-6 py-4">Size</th>
+              <th class="px-6 py-4">Created At</th>
+              <th class="px-6 py-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50 text-[13px]">
+            @each((artifact, index) in artifacts)
+              <tr class="hover:bg-gray-50/70 transition-colors">
+                <td class="px-6 py-4 text-gray-400 font-mono text-[10px]">
+                   {{ (artifacts.currentPage - 1) * artifacts.perPage + (index + 1) }}
+                </td>
+                <td class="px-6 py-4">
+                   <div class="font-bold text-gray-900 tracking-tight mb-0.5">{{ artifact.fileName }}</div>
+                   <div class="text-[10px] text-gray-400 font-mono truncate max-w-xs">{{ artifact.storageKey }}</div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-50 text-brand-800">
+                      {{ artifact.version.major }}.{{ artifact.version.minor }}.{{ artifact.version.patch }}
+                    </span>
+                    @if(artifact.isPublished)
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-tight bg-green-50 text-green-700 border border-green-100">
+                        Published
+                      </span>
+                    @endif
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                   <div class="flex flex-col gap-0.5">
+                     <div class="flex items-center gap-1.5 grayscale shrink-0">
+                        <span class="text-gray-600 font-medium">{{ artifact.platform.displayName }}</span>
+                        <span class="text-gray-300">•</span>
+                        <span class="text-gray-400 text-[11px] font-mono uppercase tracking-tighter">{{ artifact.channel }}</span>
+                     </div>
+                     <span class="text-gray-400 text-[11px]">{{ artifact.architecture.displayName }}</span>
+                   </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-1.5 font-mono text-xs text-gray-700">
+                    <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    {{ artifact.downloadCount || 0 }}
+                  </div>
+                </td>
+                <td class="px-6 py-4 text-gray-500 font-mono text-xs">
+                  {{ (artifact.sizeBytes / 1024 / 1024).toFixed(2) }} MB
+                </td>
+                <td class="px-6 py-4 text-gray-400 text-[11px]">
+                  {{ artifact.createdAt.toFormat('dd/MM/yyyy HH:mm') }}
+                </td>
+                 <td class="px-6 py-4 text-right space-x-1 whitespace-nowrap">
+                   <div class="flex items-center justify-end gap-2">
+                      <button type="button"
+                              @click="openDetailsModal('{{ artifact.id }}')"
+                              class="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-all"
+                              title="View Full Details">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                      </button>
+
+                     @if(!artifact.isPublished)
+                       <form action="{{ route('cms.artifacts.publish', { id: artifact.id }) }}" method="POST">
+                         {{ csrfField() }}
+                         <button type="submit" 
+                                 class="px-2.5 py-1 text-[10px] font-bold text-white bg-green-600 hover:bg-green-700 rounded transition-all shadow-md shadow-green-50 uppercase tracking-tight"
+                                 title="Make visible to API">
+                           Publish
+                         </button>
+                       </form>
+                     @endif
+                     <a href="{{ route('cms.artifacts.edit', { id: artifact.id }) }}" 
+                        class="action-btn-brand text-xs px-3 py-1.5"
+                        title="Edit Metadata">Edit</a>
+
+                     <button type="button"
+                             @click="openDeleteModal('{{ artifact.id }}', '{{ artifact.fileName }}')"
+                             class="action-btn-danger"
+                             title="Delete Artifact">
+                       Delete
+                     </button>
+                   </div>
+                </td>
+              </tr>
+            @else
+              <tr>
+                <td colspan="8" class="px-6 py-20 text-center">
+                  <div class="flex flex-col items-center gap-2">
+                    <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                    <p class="text-gray-500">No artifacts found matching filters.</p>
+                  </div>
+                </td>
+              </tr>
+            @end
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      @if(artifacts.hasPages)
+        <div class="px-6 py-4 border-t border-gray-50 flex items-center justify-between">
+           <div class="text-xs text-gray-400 italic">Page {{ artifacts.currentPage }} of {{ artifacts.lastPage }}</div>
+           <div class="flex items-center gap-2">
+             @if(artifacts.currentPage > 1)
+               <a href="{{ artifacts.getUrl(artifacts.currentPage - 1) }}" class="btn-secondary px-3 py-1.5 text-xs font-bold">Prev</a>
+             @endif
+             @if(artifacts.hasMorePages)
+               <a href="{{ artifacts.getUrl(artifacts.currentPage + 1) }}" class="btn-secondary px-3 py-1.5 text-xs font-bold">Next</a>
+             @endif
+           </div>
+        </div>
+      @endif
+    </div>
+
+    <!-- Artifact Details Modal -->
+    <div x-show="showDetailsModal" 
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm"
+         @keydown.escape.window="showDetailsModal = false"
+         style="display: none;">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col transform transition-all"
+           x-show="showDetailsModal"
+           x-transition:enter="ease-out duration-300"
+           x-transition:enter-start="opacity-0 translate-y-4"
+           x-transition:enter-end="opacity-100 translate-y-0"
+           @click.away="showDetailsModal = false">
+        
+        <!-- Modal Header -->
+        <div class="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+          <div>
+            <h3 class="text-xl font-black text-gray-900 tracking-tight" x-text="artifact?.fileName || 'Loading...'"></h3>
+            <p class="text-[10px] text-gray-400 font-mono mt-1" x-text="artifact?.id"></p>
+          </div>
+          <button @click="showDetailsModal = false" class="p-2 hover:bg-white rounded-full transition-colors text-gray-400 hover:text-gray-900">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="flex-1 overflow-y-auto p-8 space-y-10">
+          <template x-if="detailsLoading && !artifact">
+             <div class="flex flex-col items-center justify-center py-20 animate-pulse">
+                <div class="w-12 h-12 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin mb-4"></div>
+                <p class="text-xs font-bold text-brand-600 uppercase tracking-widest">Fetching Artifact Intelligence...</p>
+             </div>
+          </template>
+
+          <template x-if="artifact">
+            <div class="space-y-10">
+              <!-- Info Grid -->
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Version</label>
+                  <p class="text-sm font-bold text-gray-900" x-text="`${artifact.version.major}.${artifact.version.minor}.${artifact.version.patch}`"></p>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Platform</label>
+                  <p class="text-sm font-bold text-gray-900" x-text="artifact.platform.displayName"></p>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Architecture</label>
+                  <p class="text-sm font-bold text-gray-900" x-text="artifact.architecture.displayName"></p>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Channel</label>
+                  <p class="text-sm font-bold text-brand-600 uppercase" x-text="artifact.channel"></p>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Size</label>
+                  <p class="text-sm font-mono text-gray-700" x-text="formatBytes(artifact.sizeBytes)"></p>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Downloads</label>
+                  <p class="text-sm font-black text-gray-900" x-text="artifact.downloadCount"></p>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Provider</label>
+                  <p class="text-sm font-medium text-gray-900" x-text="artifact.storageProvider.name"></p>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Published At</label>
+                  <p class="text-sm text-gray-500" x-text="formatDate(artifact.publishedAt)"></p>
+                </div>
+              </div>
+
+              <!-- Storage Key -->
+              <div class="p-4 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between group">
+                <div class="overflow-hidden">
+                  <label class="text-[9px] font-black text-gray-400 uppercase tracking-tighter block mb-1">Storage Key (Asset Path)</label>
+                  <code class="text-xs text-gray-600 font-mono truncate block" x-text="artifact.storageKey"></code>
+                </div>
+                <button @click="navigator.clipboard.writeText(artifact.storageKey)" class="p-2 text-gray-400 hover:text-brand-600 opacity-0 group-hover:opacity-100 transition-all">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                </button>
+              </div>
+
+              <!-- Checksums -->
+              <div class="space-y-4">
+                 <h4 class="text-sm font-black text-gray-900 uppercase tracking-widest">Signatures (Checksums)</h4>
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <template x-for="type in ['Md5', 'Sha1', 'Sha256', 'Sha512']" :key="type">
+                       <div class="p-4 bg-gray-50/50 rounded-xl border border-gray-100 flex items-center justify-between group">
+                          <div class="overflow-hidden">
+                             <label class="text-[9px] font-black text-gray-400 uppercase tracking-tighter block mb-1" x-text="type.toUpperCase()"></label>
+                             <code class="text-[10px] text-gray-600 font-mono truncate block" x-text="artifact['checksum' + type]"></code>
+                          </div>
+                          <button @click="navigator.clipboard.writeText(artifact['checksum' + type])" class="p-2 text-gray-400 hover:text-brand-600 opacity-0 group-hover:opacity-100 transition-all">
+                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                          </button>
+                       </div>
+                    </template>
+                 </div>
+              </div>
+
+              <!-- Download History Table -->
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <h4 class="text-sm font-black text-gray-900 uppercase tracking-widest">Download Velocity</h4>
+                  <p class="text-[10px] text-gray-400" x-text="`Showing latest ${history?.data?.length || 0} events`"></p>
+                </div>
+                
+                <div class="border border-gray-100 rounded-xl overflow-hidden relative">
+                  <div x-show="detailsLoading" class="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center z-10">
+                     <span class="w-5 h-5 border-2 border-brand-600/20 border-t-brand-600 rounded-full animate-spin"></span>
+                  </div>
+
+                  <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr class="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-tighter">
+                        <th class="px-4 py-3">Timestamp</th>
+                        <th class="px-4 py-3">IP Address</th>
+                        <th class="px-4 py-3">User Agent</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50 font-medium">
+                      <template x-for="h in history?.data" :key="h.id">
+                        <tr class="hover:bg-gray-50/50 transition-colors">
+                          <td class="px-4 py-3 text-gray-500 whitespace-nowrap" x-text="formatDate(h.createdAt)"></td>
+                          <td class="px-4 py-3 font-mono text-brand-700" x-text="h.ipAddress"></td>
+                          <td class="px-4 py-3 text-gray-400 truncate max-w-[240px]" x-text="h.userAgent" :title="h.userAgent"></td>
+                        </tr>
+                      </template>
+                      <template x-if="!history?.data?.length">
+                        <tr>
+                          <td colspan="3" class="px-4 py-10 text-center text-gray-400 italic">No acquisition events recorded yet.</td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- History Pagination -->
+                <template x-if="history?.meta?.lastPage > 1">
+                  <div class="flex items-center justify-between pt-2">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase" x-text="`Page ${history.meta.currentPage} of ${history.meta.lastPage}`"></p>
+                    <div class="flex items-center gap-2">
+                      <button @click="fetchDetails(artifact.id, historyPage - 1)" 
+                              :disabled="historyPage <= 1"
+                              class="p-1 px-3 text-[10px] font-black uppercase tracking-widest rounded-lg bg-gray-50 hover:bg-gray-100 disabled:opacity-30 transition-all">
+                        Prev
+                      </button>
+                      <button @click="fetchDetails(artifact.id, historyPage + 1)" 
+                              :disabled="historyPage >= history.meta.lastPage"
+                              class="p-1 px-3 text-[10px] font-black uppercase tracking-widest rounded-lg bg-gray-50 hover:bg-gray-100 disabled:opacity-30 transition-all">
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Sticky Footer -->
+        <div class="px-8 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+           <button @click="showDetailsModal = false" class="btn-primary px-10 bg-gray-900 border-none hover:bg-black shadow-none">Close Inspector</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div x-show="showDeleteModal" 
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
+         @keydown.escape.window="showDeleteModal = false"
+         style="display: none;">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all"
+           x-show="showDeleteModal"
+           x-transition:enter="ease-out duration-300"
+           x-transition:enter-start="opacity-0 scale-95"
+           x-transition:enter-end="opacity-100 scale-100"
+           x-transition:leave="ease-in duration-200"
+           x-transition:leave-start="opacity-100 scale-100"
+           x-transition:leave-end="opacity-0 scale-95"
+           @click.away="showDeleteModal = false">
+        <div class="p-8">
+          <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-600 mb-6">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+          </div>
+          
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Delete Artifact?</h3>
+          <p class="text-gray-500 text-sm mb-1 leading-relaxed truncate" x-text="deleteName"></p>
+          <p class="text-gray-400 text-[10px] mb-6 leading-relaxed">
+            This action will permanently remove the binary record. Make sure you've backed up the file if necessary.
+          </p>
+
+          <div class="space-y-4">
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Type "delete" to confirm</label>
+              <input type="text" 
+                     x-model="confirmText" 
+                     class="input-base text-sm py-3 px-4 border-gray-200 focus:border-red-500 focus:ring-red-50" 
+                     placeholder='Type "delete" here...'
+                     autofocus />
+            </div>
+
+            <div class="flex items-center gap-3 pt-4">
+              <button type="button" 
+                      @click="showDeleteModal = false" 
+                      class="flex-1 px-4 py-3 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-colors">
+                Cancel
+              </button>
+              <form :action="`{{ route('cms.artifacts.destroy', { id: 'ID_HOLDER' }) }}`.replace('ID_HOLDER', deleteId)" 
+                    method="POST" 
+                    class="flex-1">
+                {{ csrfField() }}
+                <button type="submit" 
+                        :disabled="confirmText.toLowerCase() !== 'delete'"
+                        class="w-full px-4 py-3 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-lg shadow-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                  Delete
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+@end

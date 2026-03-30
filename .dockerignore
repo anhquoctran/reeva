@@ -1,0 +1,12 @@
+node_modules
+build
+.git
+.env
+tmp
+tests
+docker-compose.yml
+Dockerfile
+.dockerignore
+package-lock.json
+*.md
+help.txt

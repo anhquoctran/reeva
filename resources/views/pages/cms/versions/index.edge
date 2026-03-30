@@ -1,0 +1,218 @@
+@cms.layout({ title: 'Version Management' })
+  <div class="space-y-8" x-data="{ 
+    showDeleteModal: false, 
+    deleteId: '', 
+    deleteName: '', 
+    confirmText: '',
+    openDeleteModal(id, name) {
+      this.deleteId = id;
+      this.deleteName = name;
+      this.confirmText = '';
+      this.showDeleteModal = true;
+    }
+  }">
+    <!-- Header Section -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Version Management</h1>
+        <p class="text-gray-500 text-sm mt-1">Deploy and manage your software release cycle.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="{{ route('cms.versions.create') }}" class="btn-primary px-6 shadow-sm shadow-brand-200">
+          Create New Version
+        </a>
+      </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="card-premium p-6">
+      <form action="{{ route('cms.versions.index') }}" method="GET" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Version Number Search</label>
+            <input type="text" name="versionNumber" value="{{ filters.versionNumber || '' }}" class="input-base text-xs py-2" placeholder="e.g. >=1.0.0 or 1.0.*" />
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Codename</label>
+            <input type="text" name="codename" value="{{ filters.codename || '' }}" class="input-base text-xs py-2" placeholder="Search codename..." />
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Status</label>
+            <select name="isActive" class="input-base text-xs py-2">
+              <option value="">All Status</option>
+              <option value="1" {{ filters.isActive === '1' ? 'selected' : '' }}>Active</option>
+              <option value="0" {{ filters.isActive === '0' ? 'selected' : '' }}>Inactive</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Release Range</label>
+            <div class="flex items-center gap-2">
+              <input type="date" name="dateFrom" value="{{ filters.dateFrom || '' }}" class="input-base text-xs py-2" />
+              <input type="date" name="dateTo" value="{{ filters.dateTo || '' }}" class="input-base text-xs py-2" />
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex items-center justify-end gap-3 pt-2">
+          @if(filters.versionNumber || filters.codename || filters.isActive !== '' || filters.dateFrom || filters.dateTo)
+            <a href="{{ route('cms.versions.index') }}" class="text-xs text-gray-400 hover:text-gray-900 transition-colors font-semibold pr-2">Reset Filters</a>
+          @endif
+          <button type="submit" class="btn-primary py-2 px-8 text-xs font-bold tracking-tight shadow-md shadow-brand-100">Apply Filters</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Content Table -->
+    <div class="card-premium">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr class="bg-gray-50/50 border-b border-gray-100 uppercase tracking-wider text-[10px] font-bold text-gray-400">
+              <th class="px-6 py-4">#</th>
+              <th class="px-6 py-4">Version Number</th>
+              <th class="px-6 py-4">Code Name</th>
+              <th class="px-6 py-4">Created At</th>
+              <th class="px-6 py-4 text-center">Is Active</th>
+              <th class="px-6 py-4">Release Date</th>
+              <th class="px-6 py-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            @each((version, index) in versions)
+              <tr class="hover:bg-gray-50/70 transition-colors">
+                <td class="px-6 py-4 text-gray-400 font-mono text-[10px]">
+                   {{ (versions.currentPage - 1) * versions.perPage + (index + 1) }}
+                </td>
+                <td class="px-6 py-4">
+                   <div class="font-bold text-gray-900 tracking-tight">{{ version.major }}.{{ version.minor }}.{{ version.patch }}</div>
+                </td>
+                <td class="px-6 py-4 text-gray-500 italic text-xs">
+                   {{ version.codename || 'Unnamed' }}
+                </td>
+                <td class="px-6 py-4 text-gray-400 text-[11px]">
+                  {{ version.createdAt.toFormat('dd/MM/yyyy HH:mm') }}
+                </td>
+                <td class="px-6 py-4 text-center">
+                  @if(version.isActive)
+                    <span class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] mr-2"></span>
+                    <span class="text-green-700 text-[10px] font-bold uppercase">Active</span>
+                  @else
+                    <span class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-gray-300 mr-2"></span>
+                    <span class="text-gray-400 text-[10px] font-bold uppercase tracking-tight">Inactive</span>
+                  @endif
+                </td>
+                <td class="px-6 py-4 text-gray-500 text-xs font-mono">
+                  {{ version.releaseDate ? version.releaseDate.toFormat('dd/MM/yyyy') : 'N/A' }}
+                </td>
+                <td class="px-6 py-4 text-right space-x-1 whitespace-nowrap">
+                   <div class="flex items-center justify-end gap-2.5">
+                     <a href="{{ route('cms.versions.edit', { id: version.id }) }}" 
+                        class="action-btn-brand"
+                        title="Edit Version">Edit</a>
+
+                     <form action="{{ route('cms.versions.toggle', { id: version.id }) }}" method="POST" class="inline">
+                       {{ csrfField() }}
+                       <button type="submit" 
+                               class="action-btn-gray"
+                               title="{{ version.isActive ? 'Deactivate' : 'Activate' }}">
+                         {{ version.isActive ? 'Deactivate' : 'Activate' }}
+                       </button>
+                     </form>
+
+                     <button type="button"
+                             @click="openDeleteModal('{{ version.id }}', '{{ version.major }}.{{ version.minor }}.{{ version.patch }}')"
+                             class="action-btn-danger"
+                             title="Delete Version">
+                       Delete
+                     </button>
+                   </div>
+                </td>
+              </tr>
+            @else
+              <tr>
+                <td colspan="7" class="px-6 py-20 text-center">
+                  <p class="text-gray-500">No versions found.</p>
+                </td>
+              </tr>
+            @end
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      @if(versions.hasPages)
+        <div class="px-6 py-4 border-t border-gray-50 flex items-center justify-between">
+           <div class="text-xs text-gray-400 italic">Page {{ versions.currentPage }} of {{ versions.lastPage }}</div>
+           <div class="flex items-center gap-2">
+             @if(versions.currentPage > 1)
+               <a href="{{ versions.getUrl(versions.currentPage - 1) }}" class="btn-secondary px-3 py-1.5 text-xs">Prev</a>
+             @endif
+             @if(versions.hasMorePages)
+               <a href="{{ versions.getUrl(versions.currentPage + 1) }}" class="btn-secondary px-3 py-1.5 text-xs">Next</a>
+             @endif
+           </div>
+        </div>
+      @endif
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div x-show="showDeleteModal" 
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
+         @keydown.escape.window="showDeleteModal = false"
+         style="display: none;">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all"
+           x-show="showDeleteModal"
+           x-transition:enter="ease-out duration-300"
+           x-transition:enter-start="opacity-0 scale-95"
+           x-transition:enter-end="opacity-100 scale-100"
+           x-transition:leave="ease-in duration-200"
+           x-transition:leave-start="opacity-100 scale-100"
+           x-transition:leave-end="opacity-0 scale-95"
+           @click.away="showDeleteModal = false">
+        <div class="p-8">
+          <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-600 mb-6">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+          </div>
+          
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Delete Version <span x-text="deleteName"></span>?</h3>
+          <p class="text-gray-500 text-sm mb-6 leading-relaxed">
+            This action cannot be undone. All data associated with this software version will be permanently removed.
+          </p>
+
+          <div class="space-y-4">
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Type "delete" to confirm</label>
+              <input type="text" 
+                     x-model="confirmText" 
+                     class="input-base text-sm py-3 px-4 border-gray-200 focus:border-red-500 focus:ring-red-50" 
+                     placeholder='Type "delete" here...'
+                     autofocus />
+            </div>
+
+            <div class="flex items-center gap-3 pt-4">
+              <button type="button" 
+                      @click="showDeleteModal = false" 
+                      class="flex-1 px-4 py-3 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-colors">
+                Cancel
+              </button>
+              <form :action="`{{ route('cms.versions.destroy', { id: 'ID_HOLDER' }) }}`.replace('ID_HOLDER', deleteId)" 
+                    method="POST" 
+                    class="flex-1">
+                {{ csrfField() }}
+                <button type="submit" 
+                        :disabled="confirmText.toLowerCase() !== 'delete'"
+                        class="w-full px-4 py-3 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-lg shadow-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                  Delete Version
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+@end

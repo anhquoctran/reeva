@@ -1,0 +1,32 @@
+<header class="bg-white border-b border-gray-100">
+  <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+    <!-- Logo/Home Link -->
+    <a href="{{ route('home') }}" class="flex items-center gap-2 group">
+      <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold group-hover:bg-brand-700 transition-colors">R</div>
+      <span class="text-xl font-bold tracking-tight text-gray-900">Reeva</span>
+    </a>
+
+    <!-- Nav -->
+    <nav class="flex items-center gap-6">
+      @if(auth.user)
+        <div class="flex items-center gap-4">
+          <a href="{{ route('cms.dashboard') }}" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors underline decoration-brand-200 decoration-2 underline-offset-4">Go to Dashboard</a>
+          
+          <div class="h-4 w-px bg-gray-200"></div>
+          
+          <div class="flex items-center gap-3">
+             @!avatar({ initials: auth.user.initials })
+             <form action="{{ route('session.destroy') }}" method="POST">
+               {{ csrfField() }}
+               @!button({ text: 'Logout', variant: 'secondary', class: 'py-1.5 px-3' })
+             </form>
+          </div>
+        </div>
+      @else
+        {{--  <div class="flex items-center gap-3">
+          @!link({ route: 'session.create', text: 'Sign In', class: 'btn-primary py-2 px-6' })
+        </div>  --}}
+      @endif
+    </nav>
+  </div>
+</header>

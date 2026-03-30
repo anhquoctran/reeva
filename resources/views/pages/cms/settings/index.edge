@@ -1,0 +1,91 @@
+@cms.layout({ title: 'System Settings' })
+  <div class="max-w-5xl mx-auto space-y-10 py-4" x-data="{ showNewModal: false }">
+    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      <div>
+        <h1 class="text-3xl font-black text-gray-900 tracking-tight">System Settings</h1>
+        <p class="text-gray-500 mt-2 italic font-mono text-xs uppercase tracking-widest">Global configuration parameters for the whole system.</p>
+      </div>
+      <div>
+        <button @click="showNewModal = true" class="btn-primary px-8 shadow-xl shadow-brand-100 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          Add New Setting
+        </button>
+      </div>
+    </header>
+
+    <div class="card-premium overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr class="bg-gray-50/50 border-b border-gray-100 uppercase tracking-wider text-[10px] font-bold text-gray-400">
+              <th class="px-6 py-4">Setting Key</th>
+              <th class="px-6 py-4">Current Value</th>
+              <th class="px-6 py-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50 text-[13px]">
+            @each(s in settings)
+              <tr class="hover:bg-gray-50/70 transition-colors group">
+                <td class="px-6 py-4">
+                  <span class="bg-brand-50 text-brand-700 px-2 py-0.5 rounded font-bold font-mono text-[11px] ring-1 ring-brand-100 uppercase tracking-tight">{{ s.key }}</span>
+                </td>
+                <td class="px-6 py-4">
+                   <form action="{{ route('cms.settings.update', { id: s.id }) }}" method="POST" id="form-{{ s.id }}">
+                      {{ csrfField() }}
+                      <input type="text" name="value" value="{{ s.value || '' }}" class="w-full bg-transparent border-none focus:ring-0 focus:bg-white px-2 py-1 rounded transition-colors font-mono text-gray-700" placeholder="Empty value..." />
+                   </form>
+                </td>
+                <td class="px-6 py-4 text-right">
+                   <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button type="submit" form="form-{{ s.id }}" class="text-[10px] font-black text-brand-600 hover:text-brand-900 uppercase tracking-widest bg-brand-50 px-3 py-1.5 rounded-lg transition-all">Save</button>
+                      <form action="{{ route('cms.settings.destroy', { id: s.id }) }}" method="POST" class="inline">
+                        {{ csrfField() }}
+                        <button type="submit" class="text-[10px] font-black text-red-500 hover:bg-red-50 uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all" onclick="return confirm('Detele this setting?')">Delete</button>
+                      </form>
+                   </div>
+                </td>
+              </tr>
+            @else
+              <tr>
+                <td colspan="3" class="px-6 py-20 text-center">
+                  <div class="flex flex-col items-center gap-2">
+                    <svg class="w-8 h-8 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                    <p class="text-gray-400 font-medium">No system settings found.</p>
+                  </div>
+                </td>
+              </tr>
+            @end
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- New Setting Modal -->
+    <div x-show="showNewModal" 
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm"
+         style="display: none;">
+      <div @click.away="showNewModal = false" class="card-premium p-8 w-full max-w-md shadow-2xl relative">
+        <h2 class="text-xl font-bold text-gray-900 mb-6">Create New Setting</h2>
+        
+        <form action="{{ route('cms.settings.store') }}" method="POST" class="space-y-6">
+          {{ csrfField() }}
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Setting Key</label>
+            <input type="text" name="key" class="input-base font-mono" placeholder="my_awesome_setting" required />
+            <p class="text-[10px] text-gray-400 pl-1 italic">Use snake_case for consistency (e.g., maintenance_mode, site_name).</p>
+          </div>
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Initial Value</label>
+            <input type="text" name="value" class="input-base" placeholder="true / 'My App' / 123" required />
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-6">
+             <button type="button" @click="showNewModal = false" class="text-xs font-bold text-gray-400 hover:text-gray-900 transition-colors uppercase tracking-widest px-4 py-2 hover:bg-gray-50 rounded-xl">Cancel</button>
+             <button type="submit" class="btn-primary px-8 shadow-xl shadow-brand-100">Create Parameter</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+@end

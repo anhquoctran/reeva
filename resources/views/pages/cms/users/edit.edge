@@ -1,0 +1,52 @@
+@cms.layout({ title: 'Edit User - Reeva' })
+  <div class="space-y-8">
+    <div class="flex items-center gap-4">
+      <a href="{{ route('cms.users.index') }}" class="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+      </a>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Edit User</h1>
+        <p class="text-gray-500 text-sm mt-1">Update user details. Email and password cannot be changed here.</p>
+      </div>
+    </div>
+
+    <div class="card-premium max-w-2xl p-8">
+      @form({ route: 'cms.users.update', params: { id: editUser.id }, method: 'POST' })
+        <div class="space-y-6">
+          <div class="space-y-2">
+            <label class="text-sm font-semibold text-gray-700">Email Address</label>
+            <div class="input-base bg-gray-50 text-gray-500 cursor-not-allowed select-none">{{ editUser.email }}</div>
+            <p class="text-[11px] text-gray-400 font-medium">Email address cannot be changed.</p>
+          </div>
+
+          @field.root({ name: 'full_name' })
+            <div class="space-y-2">
+              @!field.label({ text: 'Full Name', class: 'text-sm font-semibold text-gray-700' })
+              @!input.control({ type: 'text', placeholder: 'John Doe', value: editUser.fullName || '' })
+            </div>
+          @end
+
+          <div class="space-y-2">
+            <label class="text-sm font-semibold text-gray-700">Password</label>
+            <div class="input-base bg-gray-50 text-gray-400 cursor-not-allowed select-none">••••••••</div>
+            <p class="text-[11px] text-gray-400 font-medium">Use the "Reset Password" button on the users list to generate a new password.</p>
+          </div>
+
+          @if(editUser.isRoot)
+            <div class="p-4 bg-brand-50 rounded-xl border border-brand-100 flex items-start gap-3">
+              <svg class="w-5 h-5 text-brand-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+              <div class="text-xs text-brand-800 font-medium leading-relaxed">
+                This is a <strong>root user</strong> and cannot be deleted or have their password reset from the admin panel.
+              </div>
+            </div>
+          @endif
+
+          <div class="flex items-center gap-3 pt-2">
+            @!button({ text: 'Save Changes', type: 'submit', class: 'btn-primary px-6 py-2.5' })
+            <a href="{{ route('cms.users.index') }}" class="btn-secondary px-6 py-2.5">Cancel</a>
+          </div>
+        </div>
+      @end
+    </div>
+  </div>
+@end

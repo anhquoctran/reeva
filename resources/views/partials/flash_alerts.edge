@@ -1,0 +1,12 @@
+<div class="fixed top-24 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-4 w-full max-w-lg px-4 pointer-events-none sm:top-8">
+  @if(flashMessages.has('error'))
+    @alert.root({ variant: 'destructive', autoDismiss: true })
+      @!alert.description({ text: flashMessages.get('error') })
+    @end
+  @end
+  @if(flashMessages.has('success'))
+    @alert.root({ variant: 'success', autoDismiss: true })
+      @!alert.description({ text: flashMessages.get('success') })
+    @end
+  @end
+</div>

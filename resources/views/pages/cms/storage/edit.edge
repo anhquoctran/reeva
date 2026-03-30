@@ -1,0 +1,159 @@
+@cms.layout({ title: 'Configure Storage' })
+  <div class="max-w-3xl mx-auto space-y-8">
+    <!-- Header/Breadcrumbs -->
+    <div class="flex items-center gap-2 text-sm text-gray-400">
+      <a href="{{ route('cms.storage.index') }}" class="hover:text-brand-600 transition-colors">Storage Management</a>
+      <span>/</span>
+      <span class="text-gray-900 font-medium">Configure Provider</span>
+    </div>
+
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Configure Storage Provider</h1>
+      <p class="text-gray-500 text-sm mt-1">Adjust settings for {{ provider.name }}. Changes take effect immediately.</p>
+    </div>
+
+    <div class="card-premium p-8">
+      @form({ action: route('cms.storage.update', { id: provider.id }), method: 'POST' })
+        <div class="space-y-6">
+          <!-- Basic Info -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-gray-500 uppercase">Provider Name</label>
+              <input type="text" name="name" value="{{ provider.name }}" class="input-base w-full" required />
+            </div>
+             <div class="space-y-2">
+              <label class="text-xs font-bold text-gray-500 uppercase">Storage Quota (GB)</label>
+              <input type="number" name="quotaGb" value="{{ (provider.quotaBytes / (1024 * 1024 * 1024)).toFixed(0) }}" class="input-base w-full" placeholder="e.g. 10" required />
+            </div>
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-gray-500 uppercase">Type (Read-only)</label>
+              <div class="px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-500 font-mono capitalize">
+                {{ provider.type }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Specific Configuration Section -->
+          <div class="pt-6 border-t border-gray-50" x-data="jsonEditor('{{ JSON.stringify(provider.config) }}')">
+            <h3 class="text-sm font-bold text-gray-900 mb-4">Backend Connection Settings</h3>
+            
+            @if(provider.type === 'local')
+              <div class="space-y-4">
+                 <div class="space-y-2">
+                    <label class="text-xs font-bold text-gray-500 uppercase">Root Path</label>
+                    <input type="text" name="config[root]" value="{{ provider.config.root }}" class="input-base w-full font-mono text-xs" placeholder="/path/to/storage" required />
+                    <p class="text-xs text-gray-400">The absolute path where version artifacts will be stored.</p>
+                 </div>
+              </div>
+            @else
+              <!-- JSON Editor -->
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-bold text-gray-500 uppercase">Configuration (JSON)</label>
+                  <span x-show="error" class="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-bold border border-red-100 animate-pulse" x-text="error"></span>
+                </div>
+                
+                <div class="relative group">
+                  <div id="ace-editor" class="w-full h-80 rounded-xl border border-gray-200 overflow-hidden ring-offset-2 ring-brand-500 transition-all focus-within:ring-2 focus-within:border-brand-500"></div>
+                  <input type="hidden" name="config" :value="minifiedValue">
+                </div>
+                
+                <div class="flex items-center justify-between">
+                  <p class="text-[10px] text-gray-400 font-medium">Use valid JSON structure for your {{ provider.type }} driver.</p>
+                  <button type="button" @click="formatJson" class="text-[10px] font-bold text-brand-600 hover:text-brand-700 uppercase tracking-widest flex items-center gap-1.5 px-2 py-1 bg-brand-50 rounded-lg hover:bg-brand-100 transition-all">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                    Auto Format
+                  </button>
+                </div>
+              </div>
+
+              <!-- Ace Editor Integration -->
+              <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.2/ace.min.js"></script>
+              <!-- Ace Editor Integration -->
+              <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.2/ace.min.js"></script>
+              <script>
+                (function() {
+                  const registerJsonEditor = () => {
+                    if (window.Alpine.data('jsonEditor')) return;
+                    
+                    window.Alpine.data('jsonEditor', (initialRaw) => ({
+                      editor: null,
+                      error: '',
+                      minifiedValue: '',
+                      
+                      init() {
+                        this.editor = ace.edit("ace-editor");
+                        this.editor.setTheme("ace/theme/chrome");
+                        this.editor.session.setMode("ace/mode/json");
+                        this.editor.setOptions({
+                          fontSize: "12px",
+                          showPrintMargin: false,
+                          useWorker: false,
+                          highlightActiveLine: true,
+                          tabSize: 2,
+                          wrap: true
+                        });
+
+                        try {
+                          const parsed = JSON.parse(initialRaw);
+                          this.editor.setValue(JSON.stringify(parsed, null, 2), -1);
+                          this.minifiedValue = JSON.stringify(parsed);
+                        } catch (e) {
+                          this.editor.setValue(initialRaw, -1);
+                          this.minifiedValue = initialRaw;
+                        }
+
+                        this.editor.on('change', () => {
+                          this.validateAndSync();
+                        });
+                      },
+
+                      validateAndSync() {
+                        const value = this.editor.getValue();
+                        try {
+                          const parsed = JSON.parse(value);
+                          this.minifiedValue = JSON.stringify(parsed);
+                          this.error = '';
+                        } catch (e) {
+                          this.error = 'Invalid JSON: ' + e.message.split(':')[0];
+                        }
+                      },
+
+                      formatJson() {
+                        try {
+                          const value = this.editor.getValue();
+                          const parsed = JSON.parse(value);
+                          this.editor.setValue(JSON.stringify(parsed, null, 2), -1);
+                          this.error = '';
+                        } catch (e) {
+                          this.error = 'Cannot format invalid JSON';
+                        }
+                      }
+                    }))
+                  };
+
+                  if (window.Alpine) {
+                    registerJsonEditor();
+                  } else {
+                    document.addEventListener('alpine:init', registerJsonEditor);
+                  }
+                })();
+              </script>
+            @end
+          </div>
+
+          <!-- Form Actions -->
+          <div class="pt-8 border-t border-gray-50 flex items-center justify-between">
+            <a href="{{ route('cms.storage.index') }}" class="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">Cancel Changes</a>
+            <button type="submit" 
+                    id="submit-btn"
+                    class="btn-primary px-8"
+                    x-on:click="if (typeof error !== 'undefined' && error) { $event.preventDefault(); alert(error); }">
+              Save Configuration
+            </button>
+          </div>
+        </div>
+      @end
+    </div>
+  </div>
+@end

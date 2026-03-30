@@ -1,0 +1,6 @@
+@let(variant = $props.get('variant') || 'primary')
+@let(variantClass = variant === 'secondary' ? 'btn-secondary' : 'btn-primary')
+
+<button {{ $props.merge({ class: variantClass }).toAttrs() }}>
+  {{{ $props.get('text') || await $slots.main() }}}
+</button>

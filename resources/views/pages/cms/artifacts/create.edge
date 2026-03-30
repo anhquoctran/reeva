@@ -1,0 +1,258 @@
+@cms.layout({ title: 'New Artifact' })
+  <div class="max-w-4xl mx-auto space-y-8" x-data="artifactUpload()">
+    <div class="flex items-center gap-4">
+      <a href="{{ route('cms.artifacts.index') }}" class="text-gray-400 hover:text-gray-900 transition-colors">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+      </a>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Upload New Artifact</h1>
+        <p class="text-gray-500 text-sm mt-1">Register a binary release linked to a specific version and environment.</p>
+      </div>
+    </div>
+
+    @if(usagePercentage >= 90)
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-4">
+        <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-extrabold text-amber-900">Low Disk Space Warning</h3>
+          <p class="text-xs text-amber-700 mt-1 leading-relaxed">
+            Your current storage provider is at <strong>{{ usagePercentage.toFixed(1) }}%</strong> capacity. 
+            Uploads will be automatically blocked once usage reaches <strong>95%</strong>.
+            Please archive old artifacts or expand your storage quota soon.
+          </p>
+        </div>
+      </div>
+    @endif
+
+    <div class="card-premium p-8 shadow-xl shadow-brand-50/50">
+      <form action="{{ route('cms.artifacts.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6" @submit.prevent="submitForm">
+        {{ csrfField() }}
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Target Platform</label>
+            <div class="grid grid-cols-3 gap-3">
+              @each(p in platforms)
+                <label class="relative flex flex-col items-center justify-center p-3 border border-gray-100 rounded-xl cursor-pointer hover:bg-brand-50/50 transition-colors group">
+                  <input type="radio" name="platformId" value="{{ p.id }}" data-name="{{ p.name }}" x-model="selectedPlatform" @change="validateFile" class="sr-only peer" required />
+                  <div class="w-2 h-2 rounded-full absolute top-2 right-2 border border-gray-300 peer-checked:bg-brand-600 peer-checked:border-brand-600 transition-all scale-0 peer-checked:scale-100"></div>
+                  
+                  <div class="mb-2 text-gray-400 peer-checked:text-brand-600 group-hover:text-brand-500 transition-colors">
+                    @!cms.platformIcon({ name: p.name, class: 'w-6 h-6' })
+                  </div>
+                  <span class="text-xs font-bold text-gray-700 peer-checked:text-brand-900 group-hover:text-brand-700">{{ p.displayName }}</span>
+                  <div class="absolute inset-0 border-2 border-transparent peer-checked:border-brand-600 rounded-xl pointer-events-none transition-all"></div>
+                </label>
+              @end
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Target Architecture</label>
+            <div class="grid grid-cols-3 gap-3">
+              @each(a in architectures)
+                <label class="relative flex flex-col items-center justify-center p-3 border border-gray-100 rounded-xl cursor-pointer hover:bg-brand-50/50 transition-colors group">
+                  <input type="radio" name="architectureId" value="{{ a.id }}" data-name="{{ a.name }}" x-model="selectedArch" @change="validateFile" class="sr-only peer" required />
+                  <div class="w-2 h-2 rounded-full absolute top-2 right-2 border border-gray-300 peer-checked:bg-brand-600 peer-checked:border-brand-600 transition-all scale-0 peer-checked:scale-100"></div>
+                  <span class="text-xs font-bold text-gray-700 peer-checked:text-brand-900 group-hover:text-brand-700">{{ a.displayName }}</span>
+                  <div class="absolute inset-0 border-2 border-transparent peer-checked:border-brand-600 rounded-xl pointer-events-none transition-all"></div>
+                </label>
+              @end
+            </div>
+          </div>
+
+          <div class="space-y-4 md:col-span-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Binary File</label>
+            <div 
+              class="border-2 border-dashed border-gray-300 rounded-2xl p-10 flex flex-col items-center justify-center transition-colors relative cursor-pointer group"
+              :class="{ 'bg-brand-50/50 border-brand-500': isDragging, 'bg-gray-50/50 hover:bg-gray-50': !isDragging }"
+              @dragover.prevent="isDragging = true"
+              @dragleave.prevent="isDragging = false"
+              @drop.prevent="handleDrop"
+              @click="$refs.fileInput.click()"
+            >
+              <input type="file" name="file" x-ref="fileInput" class="hidden" @change="handleFileSelect" required />
+              
+              <div x-show="!file" class="text-center pointer-events-none">
+                <div class="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mx-auto mb-4 group-hover:scale-105 transition-transform">
+                  <svg class="w-8 h-8 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                </div>
+                <p class="text-sm font-medium text-gray-900">Click to upload or drag and drop</p>
+                <p class="text-xs text-gray-500 mt-1">Supported formats depend on the platform</p>
+              </div>
+
+              <div x-show="file" class="text-center w-full" style="display: none;">
+                <div class="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+                   <svg class="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <p class="text-sm font-bold text-gray-900 truncate px-4" x-text="file?.name"></p>
+                <p class="text-xs text-gray-500 mt-1" x-text="file ? formatBytes(file.size) : ''"></p>
+                <p class="text-xs text-red-500 mt-2 font-semibold" x-show="fileError" x-text="fileError"></p>
+                <button type="button" @click.stop="clearFile" class="mt-4 text-xs font-semibold text-gray-500 hover:text-red-500 transition-colors z-10 relative">Remove file</button>
+              </div>
+            </div>
+            @if(flashMessages.has('errors.file'))
+              <p class="text-[10px] text-red-500 font-bold px-1 mt-1">{{ flashMessages.get('errors.file') }}</p>
+            @endif
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Software Version</label>
+            <select name="versionId" class="input-base" required>
+              <option value="">Select version...</option>
+              @each(v in versions)
+                <option value="{{ v.id }}" {{ old('versionId') === v.id ? 'selected' : '' }}>
+                   {{ v.major }}.{{ v.minor }}.{{ v.patch }} {{ v.codename ? `(${v.codename})` : '' }}
+                </option>
+              @end
+            </select>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Storage Provider</label>
+            <select name="storageProviderId" class="input-base" required>
+              <option value="">Select provider...</option>
+              @each(sp in storageProviders)
+                <option value="{{ sp.id }}" {{ old('storageProviderId') === sp.id || sp.isDefault ? 'selected' : '' }}>
+                   {{ sp.name }} ({{ sp.type }})
+                </option>
+              @end
+            </select>
+          </div>
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Release Channel</label>
+            <select name="channel" class="input-base" required>
+              <option value="dev" {{ old('channel') === 'dev' ? 'selected' : '' }}>Dev</option>
+              <option value="staging" {{ old('channel') === 'staging' ? 'selected' : '' }}>Staging</option>
+              <option value="beta" {{ old('channel') === 'beta' ? 'selected' : '' }}>Beta</option>
+              <option value="stable" {{ old('channel') === 'stable' ? 'selected' : '' }}>Stable</option>
+            </select>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Publish Status</label>
+            <label class="flex items-center gap-3 p-3 border border-gray-100 rounded-xl cursor-pointer hover:bg-brand-50/50 transition-colors h-[42px] mt-1">
+              <input type="checkbox" name="isPublished" class="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500" {{ old('isPublished') ? 'checked' : '' }} />
+              <div>
+                <span class="text-xs font-bold text-gray-700 block mt-0.5">Publish immediately</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-50">
+          <a href="{{ route('cms.artifacts.index') }}" class="px-6 py-2.5 text-sm font-bold text-gray-400 hover:text-gray-900 transition-colors">Discard</a>
+          <button type="submit" class="btn-primary px-10 shadow-lg shadow-brand-100" :disabled="fileError !== '' || !file">Upload & Save Artifact</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function artifactUpload() {
+      return {
+        isDragging: false,
+        file: null,
+        fileError: '',
+        selectedPlatform: '',
+        selectedArch: '',
+
+        handleDrop(e) {
+          this.isDragging = false
+          if (e.dataTransfer.files.length > 0) {
+            this.handleFile(e.dataTransfer.files[0])
+          }
+        },
+
+        handleFileSelect(e) {
+          if (e.target.files.length > 0) {
+            this.handleFile(e.target.files[0])
+          }
+        },
+
+        handleFile(file) {
+          this.file = file
+          this.$refs.fileInput.files = this.createFileList(file)
+          this.validateFile()
+        },
+        
+        createFileList(file) {
+          const dt = new DataTransfer()
+          dt.items.add(file)
+          return dt.files
+        },
+
+        clearFile() {
+          this.file = null
+          this.fileError = ''
+          this.$refs.fileInput.value = ''
+        },
+
+        validateFile() {
+          if (!this.selectedPlatform || !this.selectedArch) {
+             this.fileError = ''
+             return
+          }
+          
+          const platformInput = document.querySelector(`input[name="platformId"][value="${this.selectedPlatform}"]`)
+          const archInput = document.querySelector(`input[name="architectureId"][value="${this.selectedArch}"]`)
+          
+          if (!platformInput || !archInput) return;
+          
+          const platformLabel = platformInput.dataset.name.toLowerCase()
+          const archLabel = archInput.dataset.name.toLowerCase()
+          
+          this.fileError = ''
+
+          // 1. Android Specific Constraint: No x86/x64
+          if (platformLabel.includes('android')) {
+            if (archLabel.includes('x86') || archLabel.includes('x64')) {
+              this.fileError = `Android does not support ${archLabel} architecture.`
+              return
+            }
+          }
+          
+          if (!this.file) return
+
+          const ext = this.file.name.split('.').pop().toLowerCase()
+          
+          if (platformLabel.includes('windows')) {
+            if (!['exe', 'zip', 'msi', 'nupkg'].includes(ext)) {
+               this.fileError = `Invalid extension (.${ext}) for Windows.`
+            }
+          } else if (platformLabel.includes('mac') || platformLabel.includes('darwin')) {
+             if (!['dmg', 'pkg', 'zip', 'app'].includes(ext)) {
+               this.fileError = `Invalid extension (.${ext}) for macOS.`
+            }
+          } else if (platformLabel.includes('android')) {
+            if (!['apk', 'aab'].includes(ext)) {
+               this.fileError = `Invalid extension (.${ext}) for Android. Expected .apk or .aab.`
+            }
+          } else {
+             // Linux & BSD variants
+             if (!['deb', 'rpm', 'appimage', 'tar', 'gz', 'pacman', 'zip'].includes(ext)) {
+               this.fileError = `Invalid extension (.${ext}) for ${platformLabel}.`
+            }
+          }
+        },
+
+        formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 Bytes'
+            const k = 1024
+            const dm = decimals < 0 ? 0 : decimals
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+            const i = Math.floor(Math.log(bytes) / Math.log(k))
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
+        },
+
+        submitForm(e) {
+          if (!this.fileError && this.file) {
+            e.target.submit()
+          }
+        }
+      }
+    }
+  </script>
+@end

@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: oklch(0.97 0.01 240);
+  --color-brand-100: oklch(0.93 0.03 240);
+  --color-brand-200: oklch(0.87 0.06 240);
+  --color-brand-300: oklch(0.8 0.1 240);
+  --color-brand-400: oklch(0.7 0.15 240);
+  --color-brand-500: oklch(0.6 0.18 240);
+  --color-brand-600: oklch(0.5 0.2 240);
+  --color-brand-700: oklch(0.4 0.2 240);
+  --color-brand-800: oklch(0.3 0.15 240);
+  --color-brand-900: oklch(0.2 0.1 240);
+
+  --font-sans: "Inter", "system-ui", "-apple-system", "sans-serif";
+}
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased font-sans m-0 p-0;
+  }
+}
+
+@layer components {
+  /* Design system core components */
+  .btn-primary {
+    @apply px-4 py-2 bg-brand-600 text-white font-semibold rounded-xl hover:bg-brand-700 focus:ring-4 focus:ring-brand-200 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-white text-gray-700 border border-gray-200 font-semibold rounded-xl hover:bg-gray-50 focus:ring-4 focus:ring-gray-100 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center;
+  }
+
+  .input-base {
+    @apply w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-brand-100 focus:border-brand-500 outline-none transition-all duration-200 text-sm placeholder:text-gray-400;
+  }
+
+  .card-premium {
+    @apply bg-white border border-gray-100 rounded-3xl shadow-sm shadow-gray-200/40 overflow-hidden transition-all duration-300;
+  }
+
+  .card-premium:hover {
+    @apply shadow-xl shadow-brand-100/20 -translate-y-0.5 border-brand-50;
+  }
+
+  .stats-label {
+    @apply text-[10px] font-extrabold text-gray-400 uppercase tracking-[0.15em] leading-none mb-1.5 block;
+  }
+
+  .action-btn-brand {
+    @apply px-3 py-1.5 bg-brand-50 text-brand-700 font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-brand-600 hover:text-white transition-all duration-200 shadow-sm shadow-brand-100/50;
+  }
+
+  .action-btn-gray {
+    @apply px-3 py-1.5 bg-gray-50 text-gray-500 font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-gray-800 hover:text-white transition-all duration-200 shadow-sm shadow-gray-100/50;
+  }
+
+  .action-btn-danger {
+    @apply px-3 py-1.5 bg-red-50 text-red-600 font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-red-600 hover:text-white transition-all duration-200 shadow-sm shadow-red-100/50;
+  }
+}
