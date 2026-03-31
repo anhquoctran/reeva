@@ -5,7 +5,7 @@ import semver from 'semver'
 
 @inject()
 export default class UpdaterController {
-  constructor(protected updaterService: UpdaterService) {}
+  constructor(protected updaterService: UpdaterService) { }
 
   /**
    * @check
@@ -40,7 +40,10 @@ export default class UpdaterController {
         changelog: update.version.changelog,
         channel: update.channel,
         downloadUrl: `${request.protocol()}://${request.host()}/api/download/${update.id}`,
-        checksum: update.checksum,
+        md5: update.checksumMd5,
+        sha1: update.checksumSha1,
+        sha256: update.checksumSha256,
+        sha512: update.checksumSha512,
         sizeBytes: update.sizeBytes,
         publishedAt: update.publishedAt,
       })
@@ -91,6 +94,58 @@ export default class UpdaterController {
       hasUpdate,
       downloadUrl: `${request.protocol()}://${request.host()}/api/download/${artifact.id}`,
     })
+  }
+
+  /**
+   * @releases
+   * @summary Get paginated list of published releases
+   * @description Returns a paginated list of published artifacts (old versions included) for platform + arch + channel.
+   * @paramQuery platform - Target platform - r - string - windows
+   * @paramQuery arch - Target architecture - r - string - x64
+   * @paramQuery channel - Release channel - string - stable
+   * @paramQuery page - Page number - number - 1
+   * @paramQuery limit - Page size - number - 20
+   * @responseBody 200 - [{ "version": "1.5.0", ... }]
+   * @responseBody 400 - { "error": "Missing parameters" }
+   * @responseBody 404 - { "error": "No releases found" }
+   */
+  async releases({ request, response }: HttpContext) {
+    const { platform, arch, channel = 'stable', page = 1, limit = 20 } = request.all()
+
+    if (!platform || !arch) {
+      return response.status(400).json({ error: 'Missing platform or arch parameters.' })
+    }
+
+    try {
+      const { results, pagination } = await this.updaterService.getReleases(platform, arch, channel, Number(limit), Number(page))
+
+      if (!results.length) {
+        return response.status(404).json({ error: 'No releases found for the specified platform context.' })
+      }
+
+      return response.json({
+        data: results.map((artifact) => {
+          const version = `${artifact.version.major}.${artifact.version.minor}.${artifact.version.patch}`
+          return {
+            id: artifact.id,
+            version,
+            codename: artifact.version.codename,
+            changelog: artifact.version.changelog,
+            platform: artifact.platform.name,
+            arch: artifact.architecture.name,
+            channel: artifact.channel,
+            fileName: artifact.fileName,
+            sizeBytes: artifact.sizeBytes,
+            checksum: artifact.checksum,
+            publishedAt: artifact.publishedAt,
+            downloadUrl: `${request.protocol()}://${request.host()}/api/download/${artifact.id}`,
+          }
+        }),
+        pagination
+      })
+    } catch (error: any) {
+      return response.status(404).json({ error: error.message })
+    }
   }
 
   /**

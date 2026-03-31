@@ -11,6 +11,7 @@ import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 import AutoSwagger from 'adonis-autoswagger'
 import swaggerConfig from '#config/swagger'
+import { createReadStream, existsSync } from 'node:fs'
 
 // Swagger & Documentation
 router.get('/swagger.json', async () => {
@@ -103,12 +104,9 @@ router
 // API Routes
 router
   .group(() => {
-    router.get('/check', '#controllers/api/updater_controller.check').as('api.check.get')
-    router.post('/check', '#controllers/api/updater_controller.check').as('api.check.post')
-    
-    router.get('/latest', '#controllers/api/updater_controller.latest').as('api.latest.get')
-    router.post('/latest', '#controllers/api/updater_controller.latest').as('api.latest.post')
-    
+    router.get('/check', '#controllers/api/updater_controller.check').as('api.check')
+    router.get('/latest', '#controllers/api/updater_controller.latest').as('api.latest')
+    router.get('/releases', '#controllers/api/updater_controller.releases').as('api.releases')
     router.get('/download/:id', '#controllers/api/updater_controller.download').as('api.download')
   })
   .prefix('/api')
@@ -125,5 +123,9 @@ router.get('/storage/files/*', async ({ request, response }) => {
   const root = (provider.config as any)?.root || path.join(process.cwd(), 'storage', 'uploads')
   const filePath = path.join(root, key)
 
-  return response.download(filePath)
+  if (!existsSync(filePath)) return response.status(404).send('Not Found')
+
+  const fileStream = createReadStream(filePath)
+
+  return response.stream(fileStream)
 })

@@ -65,7 +65,49 @@ export default class UpdaterService {
       .first()
   }
 
-  async getGeoLocation(ipAddress: string) {
+  async getReleases(platform: string, arch: string, channel: string, limit = 10, page = 1) {
+    const p = await Platform.findBy('name', platform)
+    const a = await Architecture.findBy('name', arch)
+
+    if (!p || !a) {
+      throw new Error('Platform or architecture not supported.')
+    }
+
+    const offset = Math.max(0, page - 1) * limit
+    const query = this.artifactRepository.query()
+      .join('versions as v', 'v.id', 'artifacts.version_id')
+      .join('platforms as p', 'p.id', 'artifacts.platform_id')
+      .join('architectures as ar', 'ar.id', 'artifacts.architecture_id')
+      .where('p.name', platform)
+      .where('ar.name', arch)
+      .where('artifacts.channel', channel)
+      .where('artifacts.is_published', true)
+      .where('v.is_active', true)
+      .select('artifacts.*')
+      .preload('version')
+      .preload('platform')
+      .preload('architecture')
+      .orderBy('v.major', 'desc')
+      .orderBy('v.minor', 'desc')
+      .orderBy('v.patch', 'desc')
+
+    const countQuery = await query.clone().count('* as total').first()
+
+    const totalRecords = Number(countQuery?.$extras?.total || 0)
+
+    const results = await query.offset(offset).limit(limit)
+
+    return { results,
+      pagination: {
+        total: totalRecords,
+        page,
+        limit,
+        totalPages: Math.ceil(totalRecords / limit),
+      }
+     }
+  }
+
+  private async getGeoLocation(ipAddress: string) {
     const response = await fetch(`http://ip-api.com/json/${ipAddress}`)
     const data = await response.json() as { lat: number, lon: number, countryCode: string };
     return { lat: data.lat, lng: data.lon, countryCode: data.countryCode }
