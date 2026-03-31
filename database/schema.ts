@@ -68,10 +68,12 @@ export class ArtifactSchema extends BaseModel {
 }
 
 export class DownloadHistorySchema extends BaseModel {
-  static $columns = ['artifactId', 'createdAt', 'deletedAt', 'id', 'ipAddress', 'userAgent'] as const
+  static $columns = ['artifactId', 'countryCode', 'createdAt', 'deletedAt', 'id', 'ipAddress', 'lat', 'lng', 'userAgent'] as const
   $columns = DownloadHistorySchema.$columns
   @column()
   declare artifactId: string
+  @column()
+  declare countryCode: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column.dateTime()
@@ -81,13 +83,11 @@ export class DownloadHistorySchema extends BaseModel {
   @column()
   declare ipAddress: string | null
   @column()
-  declare userAgent: string | null
-  @column()
   declare lat: number | null
   @column()
   declare lng: number | null
   @column()
-  declare countryCode: string | null
+  declare userAgent: string | null
 }
 
 export class PasswordResetTokenSchema extends BaseModel {
