@@ -4,6 +4,7 @@ import { compose } from '@adonisjs/core/helpers'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 import { DbRememberMeTokensProvider } from '@adonisjs/auth/session'
 import { beforeCreate, column } from '@adonisjs/lucid/orm'
+import { SoftDeletes } from '#models/mixins/soft_deletes'
 import { randomUUID } from 'node:crypto'
 
 /**
@@ -19,7 +20,7 @@ const AuthFinder = withAuthFinder(hash, {
  * It extends UserSchema and includes authentication capabilities
  * through the withAuthFinder mixin.
  */
-export default class User extends compose(UserSchema, AuthFinder) {
+export default class User extends compose(UserSchema, AuthFinder, SoftDeletes) {
   static rememberMeTokens = DbRememberMeTokensProvider.forModel(User)
 
   declare password?: string
@@ -33,6 +34,7 @@ export default class User extends compose(UserSchema, AuthFinder) {
 
   @column()
   declare fullName: string | null
+
 
   get initials() {
     if (this.fullName) {

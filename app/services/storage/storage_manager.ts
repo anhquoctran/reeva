@@ -37,14 +37,19 @@ export default class StorageManager {
    */
   static async boot() {
     console.log('[StorageManager] Booting active provider...')
-    const provider = await StorageProvider.query().where('isDefault', true).first()
-    
-    if (provider) {
-      this._driver = this.resolve(provider)
-      console.log(`[StorageManager] Loaded active provider: ${provider.name} (${provider.type})`)
-    } else {
-      console.warn('[StorageManager] No active storage provider found in database.')
+    try {
+      const provider = await StorageProvider.query().where('isDefault', true).first()
+      
+      if (provider) {
+        this._driver = this.resolve(provider)
+        console.log(`[StorageManager] Loaded active provider: ${provider.name} (${provider.type})`)
+      } else {
+        console.warn('[StorageManager] No active storage provider found in database.')
+      }
+    } catch (error) {
+      console.warn('[StorageManager] Failed to fetch provider (migrations pending?):', error.message)
     }
+
   }
 
   /**

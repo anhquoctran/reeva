@@ -1,12 +1,12 @@
-import Artifact from '#models/artifact'
-import DownloadHistory from '#models/download_history'
-import Platform from '#models/platform'
-import Architecture from '#models/architecture'
-import StorageManager from '#services/storage/storage_manager'
+import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
+import UpdaterService from '#services/updater_service'
 import semver from 'semver'
 
+@inject()
 export default class UpdaterController {
+  constructor(protected updaterService: UpdaterService) {}
+
   /**
    * @check
    * @summary Check for available software updates
@@ -27,48 +27,26 @@ export default class UpdaterController {
       return response.status(400).json({ error: 'Missing platform, arch, or version check parameters.' })
     }
 
-    // 1. Resolve Platform and Architecture
-    const p = await Platform.findBy('name', platform)
-    const a = await Architecture.findBy('name', arch)
+    try {
+      const update = await this.updaterService.checkForUpdate(platform, arch, version, channel)
 
-    if (!p || !a) {
-      return response.status(404).json({ error: 'Platform or architecture not supported.' })
+      if (!update) {
+        return response.status(204).send('')
+      }
+
+      return response.json({
+        version: `${update.version.major}.${update.version.minor}.${update.version.patch}`,
+        codename: update.version.codename,
+        changelog: update.version.changelog,
+        channel: update.channel,
+        downloadUrl: `${request.protocol()}://${request.host()}/api/download/${update.id}`,
+        checksum: update.checksum,
+        sizeBytes: update.sizeBytes,
+        publishedAt: update.publishedAt,
+      })
+    } catch (error: any) {
+      return response.status(404).json({ error: error.message })
     }
-
-    // 2. Fetch artifacts for the given context using optimized joins and sorting
-    const artifacts = await Artifact.query()
-      .join('versions as v', 'v.id', 'artifacts.version_id')
-      .where('artifacts.platform_id', p.id)
-      .where('artifacts.architecture_id', a.id)
-      .where('artifacts.channel', channel)
-      .where('artifacts.is_published', true)
-      .where('v.is_active', true)
-      .select('artifacts.*')
-      .preload('version')
-      .orderBy('v.major', 'desc')
-      .orderBy('v.minor', 'desc')
-      .orderBy('v.patch', 'desc')
-
-    // 3. Find first newer version (already sorted by latest)
-    const update = artifacts.find(art => {
-      const vStr = `${art.version.major}.${art.version.minor}.${art.version.patch}`
-      return semver.valid(vStr) && semver.gt(vStr, version)
-    })
-
-    if (!update) {
-      return response.status(204).send('')
-    }
-
-    return response.json({
-      version: `${update.version.major}.${update.version.minor}.${update.version.patch}`,
-      codename: update.version.codename,
-      changelog: update.version.changelog,
-      channel: update.channel,
-      downloadUrl: `${request.protocol()}://${request.host()}/api/download/${update.id}`,
-      checksum: update.checksum,
-      sizeBytes: update.sizeBytes,
-      publishedAt: update.publishedAt
-    })
   }
 
   /**
@@ -89,43 +67,29 @@ export default class UpdaterController {
       return response.status(400).json({ error: 'Missing platform or arch parameters.' })
     }
 
-    const artifact = await Artifact.query()
-      .join('versions as v', 'v.id', 'artifacts.version_id')
-      .join('platforms as p', 'p.id', 'artifacts.platform_id')
-      .join('architectures as ar', 'ar.id', 'artifacts.architecture_id')
-      .where('p.name', platform)
-      .where('ar.name', arch)
-      .where('artifacts.channel', channel)
-      .where('artifacts.is_published', true)
-      .where('v.is_active', true)
-      .select('artifacts.*')
-      .preload('version')
-      .preload('platform')
-      .preload('architecture')
-      .orderBy('v.major', 'desc')
-      .orderBy('v.minor', 'desc')
-      .orderBy('v.patch', 'desc')
-      .first()
+    const artifact = await this.updaterService.getLatest(platform, arch, channel)
 
     if (!artifact) {
-       return response.status(404).json({ error: 'No releases found for the specified platform context.' })
+      return response.status(404).json({ error: 'No releases found for the specified platform context.' })
     }
 
     const vStr = `${artifact.version.major}.${artifact.version.minor}.${artifact.version.patch}`
-    const hasUpdate = currentVersion ? (semver.valid(vStr) && semver.valid(currentVersion) && semver.gt(vStr, currentVersion)) : true
+    const hasUpdate = currentVersion
+      ? semver.valid(vStr) && semver.valid(currentVersion) && semver.gt(vStr, currentVersion)
+      : true
 
     return response.json({
-       version: vStr,
-       codename: artifact.version.codename,
-       changelog: artifact.version.changelog,
-       platform: artifact.platform.name,
-       arch: artifact.architecture.name,
-       channel: artifact.channel,
-       fileName: artifact.fileName,
-       sizeBytes: artifact.sizeBytes,
-       checksum: artifact.checksum,
-       hasUpdate,
-       downloadUrl: `${request.protocol()}://${request.host()}/api/download/${artifact.id}`
+      version: vStr,
+      codename: artifact.version.codename,
+      changelog: artifact.version.changelog,
+      platform: artifact.platform.name,
+      arch: artifact.architecture.name,
+      channel: artifact.channel,
+      fileName: artifact.fileName,
+      sizeBytes: artifact.sizeBytes,
+      checksum: artifact.checksum,
+      hasUpdate,
+      downloadUrl: `${request.protocol()}://${request.host()}/api/download/${artifact.id}`,
     })
   }
 
@@ -138,34 +102,26 @@ export default class UpdaterController {
    * @responseBody 404 - Artifact not found
    * @responseBody 500 - Storage provider issue
    */
-  async download({ request, params, response }: HttpContext) {
-    const artifact = await Artifact.findOrFail(params.id)
-    await artifact.load('storageProvider')
-    
-    if (!artifact.storageProvider) {
-      return response.status(500).json({ error: 'Malformed artifact: storage provider missing.' })
+  async download({ request, params, response, incomingIp }: HttpContext) {
+    try {
+      const { artifact, stream } = await this.updaterService.recordAndStream(
+        params.id,
+        incomingIp,
+        request.header('user-agent')
+      )
+
+      response.header('Content-Type', artifact.mimeType || 'application/octet-stream')
+      if (artifact.sizeBytes) {
+        response.header('Content-Length', Number(artifact.sizeBytes))
+      }
+      response.header('Content-Disposition', `attachment; filename="${artifact.fileName}"`)
+
+      return response.stream(stream)
+    } catch (error: any) {
+      if (error.message?.includes('Missing artifact') || error.message?.includes('storage provider')) {
+        return response.status(500).json({ error: error.message })
+      }
+      return response.status(404).json({ error: 'Artifact not found.' })
     }
-
-    const storage = StorageManager.resolve(artifact.storageProvider)
-    const stream = await storage.getStream(artifact.storageKey)
-
-    // Track download metric & history
-    artifact.downloadCount = (artifact.downloadCount || 0) + 1
-    await artifact.save()
-
-    await DownloadHistory.create({
-      artifactId: artifact.id,
-      ipAddress: request.ip(),
-      userAgent: request.header('user-agent')
-    })
-
-    // Configure headers for secure proxied download
-    response.header('Content-Type', artifact.mimeType || 'application/octet-stream')
-    if (artifact.sizeBytes) {
-      response.header('Content-Length', Number(artifact.sizeBytes))
-    }
-    response.header('Content-Disposition', `attachment; filename="${artifact.fileName}"`)
-
-    return response.stream(stream)
   }
 }

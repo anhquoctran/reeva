@@ -8,8 +8,10 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class ArchitectureSchema extends BaseModel {
-  static $columns = ['displayName', 'id', 'name'] as const
+  static $columns = ['deletedAt', 'displayName', 'id', 'name'] as const
   $columns = ArchitectureSchema.$columns
+  @column.dateTime()
+  declare deletedAt: DateTime | null
   @column()
   declare displayName: string
   @column({ isPrimary: true })
@@ -19,7 +21,7 @@ export class ArchitectureSchema extends BaseModel {
 }
 
 export class ArtifactSchema extends BaseModel {
-  static $columns = ['architectureId', 'channel', 'checksum', 'checksumMd5', 'checksumSha1', 'checksumSha256', 'checksumSha512', 'createdAt', 'downloadCount', 'fileName', 'id', 'isArchived', 'isPublished', 'mimeType', 'platformId', 'publishedAt', 'sizeBytes', 'storageKey', 'storageProviderId', 'versionId'] as const
+  static $columns = ['architectureId', 'channel', 'checksum', 'checksumMd5', 'checksumSha1', 'checksumSha256', 'checksumSha512', 'createdAt', 'deletedAt', 'downloadCount', 'fileName', 'id', 'isArchived', 'isPublished', 'mimeType', 'platformId', 'publishedAt', 'sizeBytes', 'storageKey', 'storageProviderId', 'versionId'] as const
   $columns = ArtifactSchema.$columns
   @column()
   declare architectureId: string
@@ -37,6 +39,8 @@ export class ArtifactSchema extends BaseModel {
   declare checksumSha512: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column.dateTime()
+  declare deletedAt: DateTime | null
   @column()
   declare downloadCount: number
   @column()
@@ -64,25 +68,35 @@ export class ArtifactSchema extends BaseModel {
 }
 
 export class DownloadHistorySchema extends BaseModel {
-  static $columns = ['artifactId', 'createdAt', 'id', 'ipAddress', 'userAgent'] as const
+  static $columns = ['artifactId', 'createdAt', 'deletedAt', 'id', 'ipAddress', 'userAgent'] as const
   $columns = DownloadHistorySchema.$columns
   @column()
   declare artifactId: string
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column.dateTime()
+  declare deletedAt: DateTime | null
   @column({ isPrimary: true })
   declare id: string
   @column()
   declare ipAddress: string | null
   @column()
   declare userAgent: string | null
+  @column()
+  declare lat: number | null
+  @column()
+  declare lng: number | null
+  @column()
+  declare countryCode: string | null
 }
 
 export class PasswordResetTokenSchema extends BaseModel {
-  static $columns = ['createdAt', 'email', 'expiresAt', 'id', 'token'] as const
+  static $columns = ['createdAt', 'deletedAt', 'email', 'expiresAt', 'id', 'token'] as const
   $columns = PasswordResetTokenSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
+  @column.dateTime()
+  declare deletedAt: DateTime | null
   @column()
   declare email: string
   @column.dateTime()
@@ -94,10 +108,12 @@ export class PasswordResetTokenSchema extends BaseModel {
 }
 
 export class PlatformSchema extends BaseModel {
-  static $columns = ['createdAt', 'displayName', 'id', 'name', 'updatedAt'] as const
+  static $columns = ['createdAt', 'deletedAt', 'displayName', 'id', 'name', 'updatedAt'] as const
   $columns = PlatformSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
+  @column.dateTime()
+  declare deletedAt: DateTime | null
   @column()
   declare displayName: string
   @column({ isPrimary: true })
@@ -109,10 +125,12 @@ export class PlatformSchema extends BaseModel {
 }
 
 export class RememberMeTokenSchema extends BaseModel {
-  static $columns = ['createdAt', 'expiresAt', 'hash', 'id', 'tokenableId', 'updatedAt'] as const
+  static $columns = ['createdAt', 'deletedAt', 'expiresAt', 'hash', 'id', 'tokenableId', 'updatedAt'] as const
   $columns = RememberMeTokenSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column.dateTime()
+  declare deletedAt: DateTime | null
   @column.dateTime()
   declare expiresAt: DateTime
   @column()
@@ -126,10 +144,12 @@ export class RememberMeTokenSchema extends BaseModel {
 }
 
 export class SettingSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'key', 'updatedAt', 'value'] as const
+  static $columns = ['createdAt', 'deletedAt', 'id', 'key', 'updatedAt', 'value'] as const
   $columns = SettingSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
+  @column.dateTime()
+  declare deletedAt: DateTime | null
   @column({ isPrimary: true })
   declare id: string
   @column()
@@ -141,12 +161,14 @@ export class SettingSchema extends BaseModel {
 }
 
 export class StorageProviderSchema extends BaseModel {
-  static $columns = ['config', 'createdAt', 'id', 'isActive', 'isDefault', 'name', 'quotaBytes', 'type'] as const
+  static $columns = ['config', 'createdAt', 'deletedAt', 'id', 'isActive', 'isDefault', 'name', 'quotaBytes', 'type'] as const
   $columns = StorageProviderSchema.$columns
   @column()
   declare config: any
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column.dateTime()
+  declare deletedAt: DateTime | null
   @column({ isPrimary: true })
   declare id: string
   @column()
@@ -162,10 +184,12 @@ export class StorageProviderSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'email', 'fullName', 'id', 'isRoot', 'passwordHash', 'updatedAt'] as const
+  static $columns = ['createdAt', 'deletedAt', 'email', 'fullName', 'id', 'isRoot', 'passwordHash', 'updatedAt'] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column.dateTime()
+  declare deletedAt: DateTime | null
   @column()
   declare email: string
   @column()
@@ -181,7 +205,7 @@ export class UserSchema extends BaseModel {
 }
 
 export class VersionSchema extends BaseModel {
-  static $columns = ['changelog', 'codename', 'createdAt', 'id', 'isActive', 'major', 'minor', 'patch', 'releaseDate'] as const
+  static $columns = ['changelog', 'codename', 'createdAt', 'deletedAt', 'id', 'isActive', 'major', 'minor', 'patch', 'releaseDate'] as const
   $columns = VersionSchema.$columns
   @column()
   declare changelog: string | null
@@ -189,6 +213,8 @@ export class VersionSchema extends BaseModel {
   declare codename: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column.dateTime()
+  declare deletedAt: DateTime | null
   @column({ isPrimary: true })
   declare id: string
   @column()

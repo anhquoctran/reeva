@@ -11,7 +11,7 @@
     </div>
 
     <div class="card-premium max-w-2xl p-8">
-      @form({ route: 'cms.users.update', params: { id: editUser.id }, method: 'POST' })
+      @form({ action: route('cms.users.update', { id: editUser.id }), method: 'POST' })
         <div class="space-y-6">
           <div class="space-y-2">
             <label class="text-sm font-semibold text-gray-700">Email Address</label>

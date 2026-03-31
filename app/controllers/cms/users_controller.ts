@@ -1,12 +1,15 @@
-import User from '#models/user'
+import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
-import { randomBytes } from 'node:crypto'
+import UserService from '#services/user_service'
 
+@inject()
 export default class UsersController {
+  constructor(protected userService: UserService) {}
+
   async index({ request, view }: HttpContext) {
     const page = request.input('page', 1)
     const limit = 10
-    const users = await User.query().orderBy('createdAt', 'asc').paginate(page, limit)
+    const users = await this.userService.paginateUsers(page, limit)
     users.baseUrl(request.url())
 
     return view.render('pages/cms/users/index', { users })
@@ -19,83 +22,65 @@ export default class UsersController {
   async store({ request, session, response }: HttpContext) {
     const { email, full_name } = request.all()
 
-    // Check if email already exists
-    const existing = await User.findBy('email', email)
-    if (existing) {
-      session.flash('error', 'A user with this email already exists.')
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!email || !emailRegex.test(email)) {
+      session.flash('error', 'Please enter a valid email address.')
       return response.redirect().back()
     }
 
-    // Generate a random password
-    const randomPassword = randomBytes(8).toString('hex')
-
-    const user = await User.create({
-      email,
-      fullName: full_name || null,
-      passwordHash: randomPassword, // AuthFinder will hash this
-    })
-
-    session.flash('success', `User created successfully. Temporary password: ${randomPassword}`)
-    return response.redirect().toRoute('cms.users.index')
+    try {
+      const { randomPassword } = await this.userService.createUser(email, full_name || null)
+      
+      session.flash('success', 'User created successfully.')
+      session.flash('tempPassword', randomPassword)
+      session.flash('tempEmail', email)
+      return response.redirect().toRoute('cms.users.index')
+    } catch (error: any) {
+      session.flash('error', error.message)
+      return response.redirect().back()
+    }
   }
 
   async edit({ params, view }: HttpContext) {
-    const user = await User.findOrFail(params.id)
+    const user = await this.userService.getUser(params.id)
     return view.render('pages/cms/users/edit', { editUser: user })
   }
 
   async update({ params, request, session, response }: HttpContext) {
-    const user = await User.findOrFail(params.id)
     const { full_name } = request.all()
-
-    user.fullName = full_name || null
-    await user.save()
+    const user = await this.userService.updateUser(params.id, full_name || null)
 
     session.flash('success', `User "${user.email}" updated successfully.`)
     return response.redirect().toRoute('cms.users.index')
   }
 
   async resetPassword({ params, auth, session, response }: HttpContext) {
-    const user = await User.findOrFail(params.id)
     const currentUser = auth.user!
 
-    // Can't reset own password from here
-    if (user.id === currentUser.id) {
-      session.flash('error', 'You cannot reset your own password from here. Use your Profile page.')
+    try {
+      const { email, newPassword } = await this.userService.resetPassword(params.id, currentUser.id)
+      
+      session.flash('success', 'Password reset successfully.')
+      session.flash('tempPassword', newPassword)
+      session.flash('tempEmail', email)
+      return response.redirect().toRoute('cms.users.index')
+    } catch (error: any) {
+      session.flash('error', error.message)
       return response.redirect().back()
     }
-
-    // Can't reset root user's password
-    if (user.isRoot) {
-      session.flash('error', 'Root user password cannot be reset from here.')
-      return response.redirect().back()
-    }
-
-    const newPassword = randomBytes(8).toString('hex')
-    user.password = newPassword
-    await user.save()
-
-    session.flash('success', `Password reset for "${user.email}". New temporary password: ${newPassword}`)
-    return response.redirect().toRoute('cms.users.index')
   }
 
   async destroy({ params, auth, session, response }: HttpContext) {
-    const user = await User.findOrFail(params.id)
     const currentUser = auth.user!
 
-    if (user.isRoot) {
-      session.flash('error', 'Root user cannot be deleted.')
+    try {
+      const email = await this.userService.deleteUser(params.id, currentUser.id)
+      session.flash('success', `User "${email}" has been deleted.`)
+      return response.redirect().toRoute('cms.users.index')
+    } catch (error: any) {
+      session.flash('error', error.message)
       return response.redirect().back()
     }
-
-    if (user.id === currentUser.id) {
-      session.flash('error', 'You cannot delete your own account.')
-      return response.redirect().back()
-    }
-
-    const email = user.email
-    await user.delete()
-    session.flash('success', `User "${email}" has been deleted.`)
-    return response.redirect().toRoute('cms.users.index')
   }
 }

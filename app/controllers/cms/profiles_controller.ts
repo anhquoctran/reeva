@@ -1,7 +1,11 @@
+import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
-import hash from '@adonisjs/core/services/hash'
+import UserService from '#services/user_service'
 
+@inject()
 export default class ProfilesController {
+  constructor(protected userService: UserService) {}
+
   async index({ view }: HttpContext) {
     return view.render('pages/cms/profile/index')
   }
@@ -10,29 +14,27 @@ export default class ProfilesController {
     const user = auth.user!
     const { fullName } = request.all()
     
-    user.fullName = fullName
-    await user.save()
-
-    session.flash('success', 'Profile updated successfully.')
-    return response.redirect().back()
+    try {
+      await this.userService.updateProfile(user.id, fullName)
+      session.flash('success', 'Profile updated successfully.')
+      return response.redirect().back()
+    } catch (error: any) {
+      session.flash('error', error.message)
+      return response.redirect().back()
+    }
   }
 
   async changePassword({ auth, request, response, session }: HttpContext) {
     const user = auth.user!
     const { currentPassword, newPassword } = request.all()
 
-    // 1. Check current password
-    const isMatched = await hash.verify(user.passwordHash, currentPassword)
-    if (!isMatched) {
-      session.flash('error', 'Current password is incorrect.')
+    try {
+      await this.userService.changePassword(user.id, currentPassword, newPassword)
+      session.flash('success', 'Password changed successfully.')
+      return response.redirect().back()
+    } catch (error: any) {
+      session.flash('error', error.message)
       return response.redirect().back()
     }
-
-    // 2. Update to new password
-    user.passwordHash = await hash.make(newPassword)
-    await user.save()
-
-    session.flash('success', 'Password changed successfully.')
-    return response.redirect().back()
   }
 }

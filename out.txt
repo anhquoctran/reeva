@@ -1,0 +1,29 @@
+[StorageManager] Booting active provider...
+[90m"mysql" [39mStorageProvider (1.16 ms) [32mSELECT[0m * [32mFROM[0m `storage_providers` [32mWHERE[0m `is_default` = ? [1m[36mAND[0m `storage_providers`.`deleted_at` [1m[36mIS[0m [1m[36mNULL[0m [32mLIMIT[0m ?[90m [ true, 1 ][39m
+
+[31mℹ Error: select * from `storage_providers` where `is_default` = true and `storage_providers`.`deleted_at` is null limit 1 - Unknown column 'storage_providers.deleted_at' in 'where clause'[39m
+
+ ⁃ at Packet.asError [33m(D:/Quoc/repos/reeva/node_modules/mysql2/lib/packets/packet.js:788:17)[39m
+
+   [2m783[22m [2m┃[22m      [31mif[0m ([31mthis[0m[34m.[0mbuffer[[31mthis[0m[34m.[0moffset] [34m===[0m [33m0x23[0m) {
+   [2m784[22m [2m┃[22m        [31mthis[0m[34m.[0m[35mskip[0m([33m1[0m);
+   [2m785[22m [2m┃[22m        sqlState [34m=[0m [31mthis[0m[34m.[0m[35mreadBuffer[0m([33m5[0m)[34m.[0m[35mtoString[0m();
+   [2m786[22m [2m┃[22m      }
+   [2m787[22m [2m┃[22m      [31mconst[0m message [34m=[0m [31mthis[0m[34m.[0m[35mreadString[0m([33mundefined[0m[34m,[0m encoding);
+ [41m❯ 788 ┃      const err = new Error(message);[49m
+   [2m789[22m [2m┃[22m      err[34m.[0mcode [34m=[0m [33mErrorCodeToName[0m[errorCode];
+   [2m790[22m [2m┃[22m      err[34m.[0merrno [34m=[0m errorCode;
+   [2m791[22m [2m┃[22m      err[34m.[0msqlState [34m=[0m sqlState;
+   [2m792[22m [2m┃[22m      err[34m.[0msqlMessage [34m=[0m message;
+   [2m793[22m [2m┃[22m      [31mreturn[0m err;
+
+ ⁃ at Query.execute [33m(D:/Quoc/repos/reeva/node_modules/mysql2/lib/commands/command.js:29:26)[39m
+ ⁃ at Connection.handlePacket [33m(D:/Quoc/repos/reeva/node_modules/mysql2/lib/base/connection.js:552:34)[39m
+ ⁃ at PacketParser.onPacket [33m(D:/Quoc/repos/reeva/node_modules/mysql2/lib/base/connection.js:102:12)[39m
+ ⁃ at PacketParser.executeStart [33m(D:/Quoc/repos/reeva/node_modules/mysql2/lib/packet_parser.js:75:16)[39m
+ ⁃ at Socket.<anonymous> [33m(D:/Quoc/repos/reeva/node_modules/mysql2/lib/base/connection.js:109:25)[39m
+[2m ⁃ at [3mSocket.emit[23m ([3mnode:events:508:28[23m)[22m
+[2m ⁃ at [3maddChunk[23m ([3mnode:internal/streams/readable:559:12[23m)[22m
+[2m ⁃ at [3mreadableAddChunkPushByteMode[23m ([3mnode:internal/streams/readable:510:3[23m)[22m
+[2m ⁃ at [3mReadable.push[23m ([3mnode:internal/streams/readable:390:5[23m)[22m
+
