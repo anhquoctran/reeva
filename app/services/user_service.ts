@@ -55,17 +55,18 @@ export default class UserService {
     return { email: user.email, newPassword }
   }
 
-  async deleteUser(id: string | number, currentUserId: number | string) {
+  async toggleActiveUser(id: string | number, currentUserId: number | string) {
     const user = await this.userRepository.findById(id)
     if (user.isRoot) {
-      throw new Error('Root user cannot be deleted.')
+      throw new Error('Root user cannot be disabled/enabled.')
     }
     if (user.id === currentUserId) {
-      throw new Error('You cannot delete your own account.')
+      throw new Error('You cannot toggle your own active status.')
     }
 
-    await this.userRepository.delete(user)
-    return user.email
+    user.isActive = !user.isActive
+    await this.userRepository.update(user)
+    return { email: user.email, isActive: user.isActive }
   }
 
   async updateProfile(id: string | number, fullName: string | null) {

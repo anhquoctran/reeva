@@ -16,9 +16,15 @@ export default class SessionController {
   }
 
   /** Authenticate user credentials and create a new session */
-  async store({ request, auth, response }: HttpContext) {
+  async store({ request, auth, response, session }: HttpContext) {
     const { email, password } = request.all()
     const user = await User.verifyCredentials(email, password)
+    
+    if (!user.isActive) {
+      session.flash('error', 'Your account is disabled.')
+      return response.redirect().back()
+    }
+
     const rememberMe = !!request.input('remember_me')
 
     await auth.use('web').login(user, rememberMe)

@@ -184,7 +184,7 @@ export class StorageProviderSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'deletedAt', 'email', 'fullName', 'id', 'isRoot', 'passwordHash', 'updatedAt'] as const
+  static $columns = ['createdAt', 'deletedAt', 'email', 'fullName', 'id', 'isActive', 'isRoot', 'passwordHash', 'updatedAt'] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -196,6 +196,8 @@ export class UserSchema extends BaseModel {
   declare fullName: string | null
   @column({ isPrimary: true })
   declare id: string
+  @column()
+  declare isActive: boolean
   @column()
   declare isRoot: boolean
   @column()

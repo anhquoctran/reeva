@@ -95,7 +95,7 @@ router
         router.get('/users/:id/edit', [UsersController, 'edit']).as('cms.users.edit')
         router.post('/users/:id', [UsersController, 'update']).as('cms.users.update')
         router.post('/users/:id/reset-password', [UsersController, 'resetPassword']).as('cms.users.resetPassword')
-        router.post('/users/:id/delete', [UsersController, 'destroy']).as('cms.users.destroy')
+        router.post('/users/:id/toggle', [UsersController, 'toggleActive']).as('cms.users.toggle')
       })
       .prefix('/cms')
   })

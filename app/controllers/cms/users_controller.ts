@@ -71,12 +71,12 @@ export default class UsersController {
     }
   }
 
-  async destroy({ params, auth, session, response }: HttpContext) {
+  async toggleActive({ params, auth, session, response }: HttpContext) {
     const currentUser = auth.user!
 
     try {
-      const email = await this.userService.deleteUser(params.id, currentUser.id)
-      session.flash('success', `User "${email}" has been deleted.`)
+      const { email, isActive } = await this.userService.toggleActiveUser(params.id, currentUser.id)
+      session.flash('success', `User "${email}" has been ${isActive ? 'enabled' : 'disabled'}.`)
       return response.redirect().toRoute('cms.users.index')
     } catch (error: any) {
       session.flash('error', error.message)

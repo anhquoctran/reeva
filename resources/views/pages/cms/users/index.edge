@@ -124,6 +124,9 @@
                         @if(user.id === auth.user.id)
                           <span class="text-[9px] bg-gray-800 text-white px-1.5 py-0.5 rounded leading-none font-extrabold uppercase tracking-wider">You</span>
                         @endif
+                        @if(!user.isActive)
+                          <span class="text-[9px] bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded leading-none font-extrabold uppercase tracking-wider">Disabled</span>
+                        @endif
                       </div>
                       <div class="text-[10px] text-gray-400 font-mono tracking-tighter">{{ user.id }}</div>
                     </div>
@@ -177,25 +180,20 @@
                       </template>
                     @endif
 
-                    {{-- Delete button (not for self, not for root) --}}
+                    {{-- Disable/Enable toggle (not for self, not for root) --}}
                     @if(user.id !== auth.user.id && !user.isRoot)
-                      <button x-show="!confirmDelete" 
-                              @click="confirmDelete = true" 
-                              type="button"
-                              class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                              title="Delete user">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                      </button>
-                      <template x-if="confirmDelete">
-                        <div class="flex items-center gap-1.5 bg-red-50 px-2 py-1 rounded-lg border border-red-100">
-                          <span class="text-[10px] text-red-600 font-bold whitespace-nowrap">Delete?</span>
-                          <form action="{{ route('cms.users.destroy', { id: user.id }) }}" method="POST" class="inline">
-                            {{ csrfField() }}
-                            <button type="submit" class="px-2 py-0.5 text-[10px] font-bold rounded bg-red-600 text-white hover:bg-red-700 transition-colors">Yes</button>
-                          </form>
-                          <button @click="confirmDelete = false" type="button" class="px-2 py-0.5 text-[10px] font-bold rounded bg-white text-gray-600 hover:bg-gray-100 transition-colors border border-gray-200">No</button>
-                        </div>
-                      </template>
+                      <form action="{{ route('cms.users.toggle', { id: user.id }) }}" method="POST" class="inline m-0 p-0">
+                        {{ csrfField() }}
+                        <button type="submit"
+                                class="p-1.5 rounded-lg text-gray-400 transition-all {{ user.isActive ? 'hover:text-red-600 hover:bg-red-50' : 'hover:text-green-600 hover:bg-green-50' }}"
+                                title="{{ user.isActive ? 'Disable user' : 'Enable user' }}">
+                          @if(user.isActive)
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+                          @else
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                          @endif
+                        </button>
+                      </form>
                     @endif
 
                     {{-- Protected label for root --}}

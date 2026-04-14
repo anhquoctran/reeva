@@ -47,7 +47,7 @@ export type ScannedRoutes = {
     'cms.users.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'cms.users.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'cms.users.resetPassword': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
-    'cms.users.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'cms.users.toggle': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'api.check': { paramsTuple?: []; params?: {} }
     'api.latest': { paramsTuple?: []; params?: {} }
     'api.releases': { paramsTuple?: []; params?: {} }
@@ -129,7 +129,7 @@ export type ScannedRoutes = {
     'cms.users.store': { paramsTuple?: []; params?: {} }
     'cms.users.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'cms.users.resetPassword': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
-    'cms.users.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'cms.users.toggle': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {
