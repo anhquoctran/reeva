@@ -27,7 +27,8 @@
               </div>
               <div class="relative group">
                 @!input.control({ 
-                  '::type': "showPassword ? 'text' : 'password'", 
+                  type: 'password',
+                  ':type': "showPassword ? 'text' : 'password'", 
                   placeholder: '••••••••', 
                   autocomplete: 'current-password',
                   class: 'pr-12' 
