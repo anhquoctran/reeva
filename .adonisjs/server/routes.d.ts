@@ -48,10 +48,9 @@ export type ScannedRoutes = {
     'cms.users.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'cms.users.resetPassword': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'cms.users.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
-    'api.check.get': { paramsTuple?: []; params?: {} }
-    'api.check.post': { paramsTuple?: []; params?: {} }
-    'api.latest.get': { paramsTuple?: []; params?: {} }
-    'api.latest.post': { paramsTuple?: []; params?: {} }
+    'api.check': { paramsTuple?: []; params?: {} }
+    'api.latest': { paramsTuple?: []; params?: {} }
+    'api.releases': { paramsTuple?: []; params?: {} }
     'api.download': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   GET: {
@@ -75,8 +74,9 @@ export type ScannedRoutes = {
     'cms.users.index': { paramsTuple?: []; params?: {} }
     'cms.users.create': { paramsTuple?: []; params?: {} }
     'cms.users.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
-    'api.check.get': { paramsTuple?: []; params?: {} }
-    'api.latest.get': { paramsTuple?: []; params?: {} }
+    'api.check': { paramsTuple?: []; params?: {} }
+    'api.latest': { paramsTuple?: []; params?: {} }
+    'api.releases': { paramsTuple?: []; params?: {} }
     'api.download': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   HEAD: {
@@ -100,8 +100,9 @@ export type ScannedRoutes = {
     'cms.users.index': { paramsTuple?: []; params?: {} }
     'cms.users.create': { paramsTuple?: []; params?: {} }
     'cms.users.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
-    'api.check.get': { paramsTuple?: []; params?: {} }
-    'api.latest.get': { paramsTuple?: []; params?: {} }
+    'api.check': { paramsTuple?: []; params?: {} }
+    'api.latest': { paramsTuple?: []; params?: {} }
+    'api.releases': { paramsTuple?: []; params?: {} }
     'api.download': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   POST: {
@@ -129,8 +130,6 @@ export type ScannedRoutes = {
     'cms.users.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'cms.users.resetPassword': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'cms.users.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
-    'api.check.post': { paramsTuple?: []; params?: {} }
-    'api.latest.post': { paramsTuple?: []; params?: {} }
   }
 }
 declare module '@adonisjs/core/types/http' {

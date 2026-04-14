@@ -7,7 +7,7 @@ export default class extends BaseSeeder {
       { email: 'admin@reeva.io' },
       {
         email: 'admin@reeva.io',
-        passwordHash: 'secret',
+        passwordHash: 'admin',
         isRoot: true,
       }
     )

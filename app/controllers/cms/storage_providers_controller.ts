@@ -16,14 +16,33 @@ export default class StorageProvidersController {
 
     let currentUsage = 0
     let usagePercentage = 0
+    let currentUsageFormatted = '0.00 KB'
 
     if (defaultProvider) {
       const usage = await this.storageProviderService.getUsageStats(defaultProvider)
       currentUsage = usage.currentUsage
       usagePercentage = usage.usagePercentage
+      
+      const kb = currentUsage / 1024
+      if (kb <= 1000) {
+        currentUsageFormatted = `${kb.toFixed(2)} KB`
+      } else {
+        const mb = kb / 1024
+        if (mb <= 1000) {
+          currentUsageFormatted = `${mb.toFixed(2)} MB`
+        } else {
+          const gb = mb / 1024
+          if (gb <= 1000) {
+            currentUsageFormatted = `${gb.toFixed(2)} GB`
+          } else {
+            const tb = gb / 1024
+            currentUsageFormatted = `${tb.toFixed(2)} TB`
+          }
+        }
+      }
     }
 
-    return view.render('pages/cms/storage/index', { providers, defaultProvider, currentUsage, usagePercentage })
+    return view.render('pages/cms/storage/index', { providers, defaultProvider, currentUsage, usagePercentage, currentUsageFormatted })
   }
 
   async activate({ params, response, session }: HttpContext) {
