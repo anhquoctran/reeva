@@ -7,5 +7,10 @@ export default class extends BaseSeeder {
       { key: 'appName' },
       { value: 'reeva' }
     )
+
+    await Setting.updateOrCreate(
+      { key: 'uploadLimitSize' },
+      { value: '1GB' }
+    )
   }
 }

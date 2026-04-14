@@ -130,6 +130,18 @@ export default defineConfig({
   */
   hooks: {
     init: [indexEntities()],
-    buildStarting: [() => import('@adonisjs/vite/build_hook')],
+    buildStarting: [
+      {
+        run: async (parent) => {
+          if (process.env.SKIP_VITE_BUILD === 'true') {
+            parent.ui.logger.info('Skipping Vite asset build because SKIP_VITE_BUILD=true');
+            return;
+          }
+
+          const { default: buildHook } = await import('@adonisjs/vite/build_hook');
+          return buildHook(parent);
+        }
+      }
+    ]
   },
 })
