@@ -24,25 +24,32 @@ router.get('/docs', async ({ response }) => {
   return response.send(AutoSwagger.default.scalar('/swagger.json'))
 })
 
-
-// Explicitly import controllers
-import DashboardsController from '#controllers/cms/dashboards_controller'
-import VersionsController from '#controllers/cms/versions_controller'
-import ArtifactsController from '#controllers/cms/artifacts_controller'
-import StorageProvidersController from '#controllers/cms/storage_providers_controller'
-import SettingsController from '#controllers/cms/settings_controller'
-import ProfilesController from '#controllers/cms/profiles_controller'
-import UsersController from '#controllers/cms/users_controller'
-import SessionController from '#controllers/session_controller'
+// Lazy controller imports
+const DashboardsController = () => import('#controllers/cms/dashboards_controller')
+const VersionsController = () => import('#controllers/cms/versions_controller')
+const ArtifactsController = () => import('#controllers/cms/artifacts_controller')
+const StorageProvidersController = () => import('#controllers/cms/storage_providers_controller')
+const SettingsController = () => import('#controllers/cms/settings_controller')
+const ProfilesController = () => import('#controllers/cms/profiles_controller')
+const UsersController = () => import('#controllers/cms/users_controller')
+const SessionController = () => import('#controllers/session_controller')
 
 router
   .group(() => {
     router.get('login', [SessionController, 'create']).as('session.create')
     router.post('login', [SessionController, 'store']).as('session.store')
-    router.get('forgot-password', [SessionController, 'forgotPassword']).as('session.forgot_password')
-    router.post('forgot-password', [SessionController, 'sendResetLink']).as('session.password_recovery')
-    router.get('reset-password/:token', [SessionController, 'resetPassword']).as('session.reset_password')
-    router.post('reset-password', [SessionController, 'updatePassword']).as('session.update_password')
+    router
+      .get('forgot-password', [SessionController, 'forgotPassword'])
+      .as('session.forgot_password')
+    router
+      .post('forgot-password', [SessionController, 'sendResetLink'])
+      .as('session.password_recovery')
+    router
+      .get('reset-password/:token', [SessionController, 'resetPassword'])
+      .as('session.reset_password')
+    router
+      .post('reset-password', [SessionController, 'updatePassword'])
+      .as('session.update_password')
   })
   .use(middleware.guest())
 
@@ -62,39 +69,62 @@ router
         router.post('/versions', [VersionsController, 'store']).as('cms.versions.store')
         router.get('/versions/:id/edit', [VersionsController, 'edit']).as('cms.versions.edit')
         router.post('/versions/:id', [VersionsController, 'update']).as('cms.versions.update')
-        router.post('/versions/:id/toggle', [VersionsController, 'toggle']).as('cms.versions.toggle')
-        router.post('/versions/:id/delete', [VersionsController, 'destroy']).as('cms.versions.destroy')
+        router
+          .post('/versions/:id/toggle', [VersionsController, 'toggle'])
+          .as('cms.versions.toggle')
+        router
+          .post('/versions/:id/delete', [VersionsController, 'destroy'])
+          .as('cms.versions.destroy')
 
         router.get('/artifacts', [ArtifactsController, 'index']).as('cms.artifacts.index')
         router.get('/artifacts/create', [ArtifactsController, 'create']).as('cms.artifacts.create')
         router.post('/artifacts', [ArtifactsController, 'store']).as('cms.artifacts.store')
-        router.get('/artifacts/:id/details', [ArtifactsController, 'details']).as('cms.artifacts.details')
-        router.post('/artifacts/rebuild-all', [ArtifactsController, 'rebuildAllNames']).as('cms.artifacts.rebuild-all')
+        router
+          .get('/artifacts/:id/details', [ArtifactsController, 'details'])
+          .as('cms.artifacts.details')
+        router
+          .post('/artifacts/rebuild-all', [ArtifactsController, 'rebuildAllNames'])
+          .as('cms.artifacts.rebuild-all')
         router.get('/artifacts/:id/edit', [ArtifactsController, 'edit']).as('cms.artifacts.edit')
         router.post('/artifacts/:id', [ArtifactsController, 'update']).as('cms.artifacts.update')
-        router.post('/artifacts/:id/delete', [ArtifactsController, 'destroy']).as('cms.artifacts.destroy')
-        router.post('/artifacts/:id/publish', [ArtifactsController, 'publish']).as('cms.artifacts.publish')
+        router
+          .post('/artifacts/:id/delete', [ArtifactsController, 'destroy'])
+          .as('cms.artifacts.destroy')
+        router
+          .post('/artifacts/:id/publish', [ArtifactsController, 'publish'])
+          .as('cms.artifacts.publish')
 
         router.get('/storage', [StorageProvidersController, 'index']).as('cms.storage.index')
-        router.post('/storage/:id/activate', [StorageProvidersController, 'activate']).as('cms.storage.activate')
+        router
+          .post('/storage/:id/activate', [StorageProvidersController, 'activate'])
+          .as('cms.storage.activate')
         router.get('/storage/:id/edit', [StorageProvidersController, 'edit']).as('cms.storage.edit')
         router.post('/storage/:id', [StorageProvidersController, 'update']).as('cms.storage.update')
 
         router.get('/settings', [SettingsController, 'index']).as('cms.settings.index')
         router.post('/settings', [SettingsController, 'store']).as('cms.settings.store')
         router.post('/settings/:id', [SettingsController, 'update']).as('cms.settings.update')
-        router.post('/settings/:id/delete', [SettingsController, 'destroy']).as('cms.settings.destroy')
+        router
+          .post('/settings/:id/delete', [SettingsController, 'destroy'])
+          .as('cms.settings.destroy')
 
         router.get('/profile', [ProfilesController, 'index']).as('cms.profile.index')
         router.post('/profile', [ProfilesController, 'update']).as('cms.profile.update')
-        router.post('/profile/password', [ProfilesController, 'changePassword']).as('cms.profile.password')
+        router
+          .post('/profile/password', [ProfilesController, 'changePassword'])
+          .as('cms.profile.password')
+        router
+          .post('/profile/appearance', [ProfilesController, 'updateAppearance'])
+          .as('cms.profile.appearance')
 
         router.get('/users', [UsersController, 'index']).as('cms.users.index')
         router.get('/users/create', [UsersController, 'create']).as('cms.users.create')
         router.post('/users', [UsersController, 'store']).as('cms.users.store')
         router.get('/users/:id/edit', [UsersController, 'edit']).as('cms.users.edit')
         router.post('/users/:id', [UsersController, 'update']).as('cms.users.update')
-        router.post('/users/:id/reset-password', [UsersController, 'resetPassword']).as('cms.users.resetPassword')
+        router
+          .post('/users/:id/reset-password', [UsersController, 'resetPassword'])
+          .as('cms.users.resetPassword')
         router.post('/users/:id/toggle', [UsersController, 'toggleActive']).as('cms.users.toggle')
       })
       .prefix('/cms')
@@ -114,7 +144,8 @@ router
 // Serving local storage files (Proxied or Direct)
 router.get('/storage/files/*', async ({ request, response }) => {
   const key = request.param('*').join('/')
-  const StorageProvider = (await import('#models/storage_provider')).default
+  const StorageProviderModule = await import('#models/storage_provider')
+  const StorageProvider = StorageProviderModule.default
   const path = await import('node:path')
   const provider = await StorageProvider.query().where('type', 'local').first()
 

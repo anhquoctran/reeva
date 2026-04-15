@@ -9,7 +9,7 @@ export default class extends BaseSchema {
     this.schema.createTable(this.tableName, (table) => {
       const id = table.uuid('id').primary()
       if (isPg) {
-        id.defaultTo(this.db.rawQuery('gen_random_uuid()'))
+        id.defaultTo(this.raw('gen_random_uuid()'))
       }
       
       table.uuid('artifact_id').notNullable().references('id').inTable('artifacts').onDelete('CASCADE')

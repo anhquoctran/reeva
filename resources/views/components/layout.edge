@@ -12,7 +12,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('dumper')
   </head>
-  <body>
+  <body x-data="themeManager">
     @include('partials/header')
     <main>
       @include('partials/flash_alerts')

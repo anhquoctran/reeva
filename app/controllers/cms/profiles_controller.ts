@@ -37,4 +37,16 @@ export default class ProfilesController {
       return response.redirect().back()
     }
   }
+
+  async updateAppearance({ auth, request, response }: HttpContext) {
+    const user = auth.user!
+    const { theme, accentColor } = request.all()
+
+    try {
+      await this.userService.updateAppearance(user.id, theme, Number(accentColor))
+      return response.json({ ok: true })
+    } catch (error: any) {
+      return response.status(422).json({ ok: false, error: error.message })
+    }
+  }
 }

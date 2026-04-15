@@ -184,8 +184,10 @@ export class StorageProviderSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'deletedAt', 'email', 'fullName', 'id', 'isActive', 'isRoot', 'passwordHash', 'updatedAt'] as const
+  static $columns = ['accentColor', 'createdAt', 'deletedAt', 'email', 'fullName', 'id', 'isActive', 'isRoot', 'passwordHash', 'theme', 'updatedAt'] as const
   $columns = UserSchema.$columns
+  @column()
+  declare accentColor: number | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column.dateTime()
@@ -202,6 +204,8 @@ export class UserSchema extends BaseModel {
   declare isRoot: boolean
   @column()
   declare passwordHash: string
+  @column()
+  declare theme: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
 }

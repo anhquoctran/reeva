@@ -88,4 +88,12 @@ export default class UserService {
     user.passwordHash = await hash.make(newPassword)
     return await this.userRepository.update(user)
   }
+
+  async updateAppearance(id: string | number, theme: string, accentColor: number) {
+    const user = await this.userRepository.findById(id)
+    const validThemes = ['light', 'dark', 'system']
+    user.theme = validThemes.includes(theme) ? theme : 'system'
+    user.accentColor = Math.max(0, Math.min(accentColor, 6))
+    return await this.userRepository.update(user)
+  }
 }

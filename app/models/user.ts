@@ -38,6 +38,12 @@ export default class User extends compose(UserSchema, AuthFinder, SoftDeletes) {
   @column()
   declare isActive: boolean
 
+  @column()
+  declare theme: string
+
+  @column()
+  declare accentColor: number
+
 
   get initials() {
     if (this.fullName) {

@@ -41,6 +41,7 @@ export type ScannedRoutes = {
     'cms.profile.index': { paramsTuple?: []; params?: {} }
     'cms.profile.update': { paramsTuple?: []; params?: {} }
     'cms.profile.password': { paramsTuple?: []; params?: {} }
+    'cms.profile.appearance': { paramsTuple?: []; params?: {} }
     'cms.users.index': { paramsTuple?: []; params?: {} }
     'cms.users.create': { paramsTuple?: []; params?: {} }
     'cms.users.store': { paramsTuple?: []; params?: {} }
@@ -126,6 +127,7 @@ export type ScannedRoutes = {
     'cms.settings.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'cms.profile.update': { paramsTuple?: []; params?: {} }
     'cms.profile.password': { paramsTuple?: []; params?: {} }
+    'cms.profile.appearance': { paramsTuple?: []; params?: {} }
     'cms.users.store': { paramsTuple?: []; params?: {} }
     'cms.users.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'cms.users.resetPassword': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

@@ -1,61 +1,172 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------
+   Class-based dark mode (Tailwind v4)
+   --------------------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------
+   Dynamic accent color system
+   Override --accent-hue at runtime to change the entire brand palette.
+   --------------------------------------------------------------- */
+:root {
+  --accent-hue: 240;
+  --accent-chroma: 0.18;
+}
+
 @theme {
-  --color-brand-50: oklch(0.97 0.01 240);
-  --color-brand-100: oklch(0.93 0.03 240);
-  --color-brand-200: oklch(0.87 0.06 240);
-  --color-brand-300: oklch(0.8 0.1 240);
-  --color-brand-400: oklch(0.7 0.15 240);
-  --color-brand-500: oklch(0.6 0.18 240);
-  --color-brand-600: oklch(0.5 0.2 240);
-  --color-brand-700: oklch(0.4 0.2 240);
-  --color-brand-800: oklch(0.3 0.15 240);
-  --color-brand-900: oklch(0.2 0.1 240);
+  /* Brand colors – driven by --accent-hue / --accent-chroma CSS vars */
+  --color-brand-50: oklch(0.97 0.014 var(--accent-hue));
+  --color-brand-100: oklch(0.93 0.032 var(--accent-hue));
+  --color-brand-200: oklch(0.87 0.06 var(--accent-hue));
+  --color-brand-300: oklch(0.8 0.1 var(--accent-hue));
+  --color-brand-400: oklch(0.7 0.15 var(--accent-hue));
+  --color-brand-500: oklch(0.6 var(--accent-chroma) var(--accent-hue));
+  --color-brand-600: oklch(0.5 0.2 var(--accent-hue));
+  --color-brand-700: oklch(0.4 0.2 var(--accent-hue));
+  --color-brand-800: oklch(0.3 0.15 var(--accent-hue));
+  --color-brand-900: oklch(0.2 0.1 var(--accent-hue));
 
   --font-sans: "Inter", "system-ui", "-apple-system", "sans-serif";
 }
 
+/* ---------------------------------------------------------------
+   Dark mode – swap neutral & brand palettes via CSS custom props.
+   Because Tailwind v4 utilities reference these vars, every
+   existing template automatically adapts.
+   --------------------------------------------------------------- */
+.dark {
+  color-scheme: dark;
+
+  /* Inverted gray scale for dark surfaces */
+  --color-white: oklch(0.16 0.004 265);
+  --color-gray-50: oklch(0.19 0.005 265);
+  --color-gray-100: oklch(0.23 0.006 265);
+  --color-gray-200: oklch(0.29 0.006 265);
+  --color-gray-300: oklch(0.40 0.008 265);
+  --color-gray-400: oklch(0.55 0.01 265);
+  --color-gray-500: oklch(0.64 0.01 265);
+  --color-gray-600: oklch(0.73 0.008 265);
+  --color-gray-700: oklch(0.82 0.008 265);
+  --color-gray-800: oklch(0.90 0.006 265);
+  --color-gray-900: oklch(0.96 0.003 265);
+
+  /* Brand – boost lightness so colors pop on dark surfaces */
+  --color-brand-50: oklch(0.22 0.035 var(--accent-hue));
+  --color-brand-100: oklch(0.28 0.06 var(--accent-hue));
+  --color-brand-200: oklch(0.35 0.09 var(--accent-hue));
+  --color-brand-600: oklch(0.65 0.2 var(--accent-hue));
+  --color-brand-700: oklch(0.73 0.17 var(--accent-hue));
+
+  /* Status colors – softer for dark backgrounds */
+  --color-green-50: oklch(0.22 0.04 155);
+  --color-green-100: oklch(0.28 0.06 155);
+  --color-red-50: oklch(0.22 0.04 25);
+  --color-red-100: oklch(0.28 0.06 25);
+  --color-amber-50: oklch(0.22 0.04 85);
+  --color-amber-100: oklch(0.28 0.06 85);
+  --color-indigo-50: oklch(0.22 0.04 270);
+  --color-indigo-100: oklch(0.28 0.06 270);
+}
+
+/* ---------------------------------------------------------------
+   Base layer
+   --------------------------------------------------------------- */
 @layer base {
   body {
     @apply bg-gray-50 text-gray-900 antialiased font-sans m-0 p-0;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 }
 
+/* ---------------------------------------------------------------
+   Component layer
+   --------------------------------------------------------------- */
 @layer components {
-  /* Design system core components */
+  /* ---- Buttons ---- */
   .btn-primary {
-    @apply px-4 py-2 bg-brand-600 text-white font-semibold rounded-xl hover:bg-brand-700 focus:ring-4 focus:ring-brand-200 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center;
+    @apply px-4 py-2 bg-brand-600 text-white font-semibold rounded-xl
+           hover:bg-brand-700 focus:ring-4 focus:ring-brand-200
+           transition-all duration-200 shadow-sm
+           disabled:opacity-50 disabled:cursor-not-allowed
+           inline-flex items-center justify-center;
   }
 
   .btn-secondary {
-    @apply px-4 py-2 bg-white text-gray-700 border border-gray-200 font-semibold rounded-xl hover:bg-gray-50 focus:ring-4 focus:ring-gray-100 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center;
+    @apply px-4 py-2 bg-white text-gray-700 border border-gray-200
+           font-semibold rounded-xl hover:bg-gray-50
+           focus:ring-4 focus:ring-gray-100 transition-all duration-200
+           shadow-sm disabled:opacity-50 disabled:cursor-not-allowed
+           inline-flex items-center justify-center;
   }
 
+  /* ---- Inputs ---- */
   .input-base {
-    @apply w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-brand-100 focus:border-brand-500 outline-none transition-all duration-200 text-sm placeholder:text-gray-400;
+    @apply w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl
+           focus:ring-4 focus:ring-brand-100 focus:border-brand-500
+           outline-none transition-all duration-200 text-sm
+           placeholder:text-gray-400;
   }
 
+  /* ---- Cards ---- */
   .card-premium {
-    @apply bg-white border border-gray-100 rounded-3xl shadow-sm shadow-gray-200/40 overflow-hidden transition-all duration-300;
+    @apply bg-white border border-gray-100 rounded-3xl shadow-sm
+           shadow-gray-200/40 overflow-hidden transition-all duration-300;
   }
 
   .card-premium:hover {
     @apply shadow-xl shadow-brand-100/20 -translate-y-0.5 border-brand-50;
   }
 
+  /* ---- Labels & actions ---- */
   .stats-label {
-    @apply text-[10px] font-extrabold text-gray-400 uppercase tracking-[0.15em] leading-none mb-1.5 block;
+    @apply text-[10px] font-extrabold text-gray-400 uppercase
+           tracking-[0.15em] leading-none mb-1.5 block;
   }
 
   .action-btn-brand {
-    @apply px-3 py-1.5 bg-brand-50 text-brand-700 font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-brand-600 hover:text-white transition-all duration-200 shadow-sm shadow-brand-100/50;
+    @apply px-3 py-1.5 bg-brand-50 text-brand-700 font-bold text-[10px]
+           uppercase tracking-wider rounded-lg hover:bg-brand-600
+           hover:text-white transition-all duration-200
+           shadow-sm shadow-brand-100/50;
   }
 
   .action-btn-gray {
-    @apply px-3 py-1.5 bg-gray-50 text-gray-500 font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-gray-800 hover:text-white transition-all duration-200 shadow-sm shadow-gray-100/50;
+    @apply px-3 py-1.5 bg-gray-50 text-gray-500 font-bold text-[10px]
+           uppercase tracking-wider rounded-lg hover:bg-gray-800
+           hover:text-white transition-all duration-200
+           shadow-sm shadow-gray-100/50;
   }
 
   .action-btn-danger {
-    @apply px-3 py-1.5 bg-red-50 text-red-600 font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-red-600 hover:text-white transition-all duration-200 shadow-sm shadow-red-100/50;
+    @apply px-3 py-1.5 bg-red-50 text-red-600 font-bold text-[10px]
+           uppercase tracking-wider rounded-lg hover:bg-red-600
+           hover:text-white transition-all duration-200
+           shadow-sm shadow-red-100/50;
   }
+}
+
+/* ---------------------------------------------------------------
+   Accent-picker swatch ring
+   --------------------------------------------------------------- */
+.accent-swatch {
+  @apply w-7 h-7 rounded-full cursor-pointer ring-2 ring-transparent
+         ring-offset-2 ring-offset-white transition-all duration-200
+         hover:scale-110 active:scale-95;
+}
+.accent-swatch.active {
+  @apply ring-brand-600 scale-110;
+}
+.dark .accent-swatch {
+  ring-offset-color: var(--color-gray-50);
+}
+
+/* ---------------------------------------------------------------
+   Theme toggle icon animation
+   --------------------------------------------------------------- */
+.theme-toggle-icon {
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.dark .theme-toggle-icon {
+  transform: rotate(180deg);
 }
