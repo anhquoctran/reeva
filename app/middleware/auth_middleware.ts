@@ -22,7 +22,7 @@ export default class AuthMiddleware {
     await ctx.auth.authenticateUsing(options.guards, { loginRoute: this.redirectTo })
 
     const user = ctx.auth.user as any
-    if (user && user.isActive === false) {
+    if (user && !user.isActive) {
       await ctx.auth.use('web').logout()
       ctx.session.flash('error', 'Your session was terminated because your account has been disabled.')
       return ctx.response.redirect().toRoute('session.create')

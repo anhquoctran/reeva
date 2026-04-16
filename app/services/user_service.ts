@@ -35,7 +35,7 @@ export default class UserService {
 
   async updateUser(id: string | number, fullName: string | null) {
     const user = await this.userRepository.findById(id)
-    user.fullName = fullName
+    user.merge({ fullName })
     return await this.userRepository.update(user)
   }
 
@@ -49,8 +49,11 @@ export default class UserService {
     }
 
     const newPassword = randomBytes(8).toString('hex')
-    user.passwordHash = await hash.make(newPassword)
-    await this.userRepository.update(user)
+    const hashedPassword = await hash.make(newPassword)
+    
+    // Explicitly bypass ORM dirty tracking using direct query builder
+    const db = await import('@adonisjs/lucid/services/db')
+    await db.default.from('users').where('id', id).update({ password_hash: hashedPassword })
 
     return { email: user.email, newPassword }
   }
@@ -64,14 +67,16 @@ export default class UserService {
       throw new Error('You cannot toggle your own active status.')
     }
 
-    user.isActive = !user.isActive
-    await this.userRepository.update(user)
-    return { email: user.email, isActive: user.isActive }
+    const newStatus = !user.isActive
+    const db = await import('@adonisjs/lucid/services/db')
+    await db.default.from('users').where('id', id).update({ is_active: newStatus })
+    
+    return { email: user.email, isActive: newStatus }
   }
 
   async updateProfile(id: string | number, fullName: string | null) {
     const user = await this.userRepository.findById(id)
-    user.fullName = fullName
+    user.merge({ fullName })
     return await this.userRepository.update(user)
   }
 
@@ -85,7 +90,11 @@ export default class UserService {
     }
 
     // 2. Update to new password
-    user.passwordHash = await hash.make(newPassword)
-    return await this.userRepository.update(user)
+    const hashedPassword = await hash.make(newPassword)
+    
+    const db = await import('@adonisjs/lucid/services/db')
+    await db.default.from('users').where('id', id).update({ password_hash: hashedPassword })
+    
+    return user
   }
 }

@@ -35,9 +35,6 @@ export default class User extends compose(UserSchema, AuthFinder, SoftDeletes) {
   @column()
   declare fullName: string | null
 
-  @column()
-  declare isActive: boolean
-
 
   get initials() {
     if (this.fullName) {

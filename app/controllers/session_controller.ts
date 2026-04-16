@@ -17,18 +17,35 @@ export default class SessionController {
 
   /** Authenticate user credentials and create a new session */
   async store({ request, auth, response, session }: HttpContext) {
-    const { email, password } = request.all()
-    const user = await User.verifyCredentials(email, password)
+    let { email, password } = request.all()
+    email = email?.trim()
+    password = password?.trim()
     
-    if (!user.isActive) {
-      session.flash('error', 'Your account is disabled.')
+    try {
+      const dbUser = await User.findBy('email', email)
+      if (dbUser) {
+        const hashService = await import('@adonisjs/core/services/hash')
+        const isMatch = await hashService.default.verify(dbUser.passwordHash, password)
+        console.log(`[DEBUG] DB Hash: ${dbUser.passwordHash}`)
+        console.log(`[DEBUG] Passed Password: "${password}"`)
+        console.log(`[DEBUG] Manual hash.verify: ${isMatch}`)
+      }
+
+      const user = await User.verifyCredentials(email, password)
+      
+      if (!user.isActive) {
+        session.flash('error', 'Your account is disabled.')
+        return response.redirect().back()
+      }
+
+      const rememberMe = !!request.input('remember_me')
+      await auth.use('web').login(user, rememberMe)
+      return response.redirect().toRoute('cms.dashboard')
+    } catch (error: any) {
+      console.error('LOGIN ERROR:', error)
+      session.flash('error', 'Invalid email or password.')
       return response.redirect().back()
     }
-
-    const rememberMe = !!request.input('remember_me')
-
-    await auth.use('web').login(user, rememberMe)
-    return response.redirect().toRoute('cms.dashboard')
   }
 
   /** Log out the current user and destroy their session */
