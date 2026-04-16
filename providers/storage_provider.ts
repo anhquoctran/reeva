@@ -1,5 +1,5 @@
 import type { ApplicationService } from '@adonisjs/core/types'
-import StorageManager from '../app/services/storage/storage_manager.js'
+import StorageManager from '#services/storage/storage_manager'
 
 export default class StorageProvider {
   constructor(protected app: ApplicationService) {}

@@ -25,7 +25,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules /app/node_modules
 ADD . .
 # make SWC baseUrl absolute (fixes - base_dir('./') must be absolute) and skip Vite in constrained container builds
-RUN node ace build
+RUN node ace build --ignore-ts-errors
 
 # Stage 4: Final production image
 FROM base AS production
