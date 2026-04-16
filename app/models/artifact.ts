@@ -4,10 +4,10 @@ import { SoftDeletes } from '#models/mixins/soft_deletes'
 import { compose } from '@adonisjs/core/helpers'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import { randomUUID } from 'node:crypto'
-import Version from './version.js'
-import Platform from './platform.js'
-import Architecture from './architecture.js'
-import StorageProvider from './storage_provider.js'
+import Version from '#models/version'
+import Platform from '#models/platform'
+import Architecture from '#models/architecture'
+import StorageProvider from '#models/storage_provider'
 
 export default class Artifact extends compose(ArtifactSchema, SoftDeletes) {
 

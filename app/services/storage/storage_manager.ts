@@ -1,9 +1,9 @@
 import StorageProvider from '#models/storage_provider'
-import LocalProvider from './providers/LocalProvider'
-import MinIOProvider from './providers/MinIOProvider'
-import AWSS3Provider from './providers/AWSS3Provider'
-import SeaweedFSProvider from './providers/SeaweedFSProvider'
-import type { BaseStorageProvider } from './BaseStorageProvider'
+import LocalProvider from '#services/storage/providers/LocalProvider'
+import MinIOProvider from '#services/storage/providers/MinIOProvider'
+import AWSS3Provider from '#services/storage/providers/AWSS3Provider'
+import SeaweedFSProvider from '#services/storage/providers/SeaweedFSProvider'
+import type { BaseStorageProvider } from '#services/storage/BaseStorageProvider'
 
 /**
  * Storage Manager maps provider types to their actual implementations.

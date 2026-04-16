@@ -26,15 +26,31 @@ COPY --from=deps /app/node_modules /app/node_modules
 ADD . .
 # make SWC baseUrl absolute (fixes - base_dir('./') must be absolute) and skip Vite in constrained container builds
 RUN node ace build --ignore-ts-errors
+# Debug: verify build output
+RUN echo "=== BUILD OUTPUT ===" && \
+    ls -la build/app/services/storage/ && \
+    echo "=== BUILD PACKAGE.JSON IMPORTS ===" && \
+    node -e "console.log(JSON.stringify(require('./build/package.json').imports, null, 2))" && \
+    echo "=== COMPILED PROVIDER IMPORT ===" && \
+    head -1 build/providers/storage_provider.js
 
 # Stage 4: Final production image
 FROM base AS production
 ENV NODE_ENV=production
 WORKDIR /app
-# Copy hoisted node_modules
+
+# Copy production dependencies
 COPY --from=production-deps /app/node_modules /app/node_modules
-COPY --from=build /app/build /app/build
-COPY --from=build /app/package.json /app/package.json
+# Copy built app
+COPY --from=build /app/build/ /app/
+
+# Debug: verify final container structure
+RUN echo "=== FINAL CONTAINER ===" && \
+    ls -la /app/app/services/storage/ && \
+    echo "=== PACKAGE.JSON ===" && \
+    node -e "console.log(JSON.stringify(require('./package.json').imports, null, 2))" && \
+    echo "=== TEST RESOLUTION ===" && \
+    node -e "try { require.resolve('#services/storage/storage_manager'); console.log('RESOLVED OK') } catch(e) { console.log('RESOLVE FAILED:', e.message) }"
 
 EXPOSE 3333
-CMD ["node", "build/bin/server.js"]
+CMD ["node", "bin/server.js"]
