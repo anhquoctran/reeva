@@ -27,7 +27,7 @@ export default defineConfig({
     () => import('@adonisjs/core/commands'),
     () => import('@adonisjs/lucid/commands'),
     () => import('@adonisjs/session/commands'),
-    () => import('@adonisjs/mail/commands')
+    () => import('@adonisjs/mail/commands'),
   ],
 
   /*
@@ -55,7 +55,8 @@ export default defineConfig({
     () => import('@adonisjs/lucid/database_provider'),
     () => import('@adonisjs/auth/auth_provider'),
     () => import('./providers/storage_provider.js'),
-    () => import('@adonisjs/mail/mail_provider')
+    () => import('./providers/app_info_provider.js'),
+    () => import('@adonisjs/mail/mail_provider'),
   ],
 
   /*
@@ -134,14 +135,14 @@ export default defineConfig({
       {
         run: async (parent) => {
           if (process.env.SKIP_VITE_BUILD === 'true') {
-            parent.ui.logger.info('Skipping Vite asset build because SKIP_VITE_BUILD=true');
-            return;
+            parent.ui.logger.info('Skipping Vite asset build because SKIP_VITE_BUILD=true')
+            return
           }
 
-          const { default: buildHook } = await import('@adonisjs/vite/build_hook');
-          return buildHook(parent);
-        }
-      }
-    ]
+          const { default: buildHook } = await import('@adonisjs/vite/build_hook')
+          return buildHook(parent)
+        },
+      },
+    ],
   },
 })

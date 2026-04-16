@@ -184,9 +184,9 @@
     check-disk-space "^3.4.0"
 
 "@adonisjs/http-server@^8.1.1":
-  version "8.1.1"
-  resolved "https://registry.npmjs.org/@adonisjs/http-server/-/http-server-8.1.1.tgz"
-  integrity sha512-IpG9O8FVJjVYWjUopHALJYpUHRladt9NRLNEhpo5AoFqf6LALjkCzbEVzZ2c3/Ly626NTlosuGEFsYuYKDgohw==
+  version "8.2.0"
+  resolved "https://registry.yarnpkg.com/@adonisjs/http-server/-/http-server-8.2.0.tgz#d132f117bc8364d5817338b4a61a9fc55e3b1c90"
+  integrity sha512-rqrvPd5RclMB4ubLN85Mj2zl/zFmDl2M1MIjCEbjh0R9iyaVNEvMX0R6FEPmZxxnz4EKAmN3zffHlB0p8j5e1w==
   dependencies:
     "@poppinss/macroable" "^1.1.2"
     "@poppinss/matchit" "^3.2.0"
@@ -194,8 +194,8 @@
     "@poppinss/qs" "^6.15.0"
     "@poppinss/utils" "^7.0.1"
     "@sindresorhus/is" "^7.2.0"
-    content-disposition "^1.0.1"
-    cookie-es "^2.0.0"
+    content-disposition "^1.1.0"
+    cookie-es "^3.1.1"
     destroy "^1.2.0"
     encodeurl "^2.0.0"
     etag "^1.8.1"
@@ -3086,24 +3086,19 @@ constant-case@^3.0.4:
     tslib "^2.0.3"
     upper-case "^2.0.2"
 
-content-disposition@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.npmjs.org/content-disposition/-/content-disposition-1.0.1.tgz"
-  integrity sha512-oIXISMynqSqm241k6kcQ5UwttDILMK4BiurCfGEREw6+X9jkkpEe5T9FZaApyLGGOnFuyMWZpdolTXMtvEJ08Q==
+content-disposition@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/content-disposition/-/content-disposition-1.1.0.tgz#f3db789c752d45564cc7e9e1e0b31790d4a38e17"
+  integrity sha512-5jRCH9Z/+DRP7rkvY83B+yGIGX96OYdJmzngqnw2SBSxqCFPd0w2km3s5iawpGX8krnwSGmF0FW5Nhr0Hfai3g==
 
 content-type@^1.0.5:
   version "1.0.5"
   resolved "https://registry.npmjs.org/content-type/-/content-type-1.0.5.tgz"
   integrity sha512-nTjqfcBFEipKdXCv4YDQWCfmcLZKm81ldF0pAopTvyrFGVbcR6P/VAAd5G7N+0tTr8QqiU0tFadD6FK4NtJwOA==
 
-cookie-es@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.npmjs.org/cookie-es/-/cookie-es-2.0.0.tgz"
-  integrity sha512-RAj4E421UYRgqokKUmotqAwuplYw15qtdXfY+hGzgCJ/MBjCVZcSoHK/kH9kocfjRjcDME7IiDWR/1WX1TM2Pg==
-
-cookie-es@^3.0.1:
+cookie-es@^3.0.1, cookie-es@^3.1.1:
   version "3.1.1"
-  resolved "https://registry.npmjs.org/cookie-es/-/cookie-es-3.1.1.tgz"
+  resolved "https://registry.yarnpkg.com/cookie-es/-/cookie-es-3.1.1.tgz#c4a8a16cf88cb5a185b23f4a61d6e9a85eb53287"
   integrity sha512-UaXxwISYJPTr9hwQxMFYZ7kNhSXboMXP+Z3TRX6f1/NyaGPfuNUZOWP1pUEb75B2HjfklIYLVRfWiFZJyC6Npg==
 
 core-js-compat@^3.46.0:
@@ -4350,9 +4345,9 @@ lodash-es@4.17.23, lodash-es@^4.17.10:
   integrity sha512-kVI48u3PZr38HdYz98UmfPnXl2DXrpdctLrFLCd3kOx1xUkOmpFPx7gCWWM5MPkL/fD8zb+Ph0QzjGFs4+hHWg==
 
 lodash@^4.17.10, lodash@^4.17.21:
-  version "4.17.23"
-  resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.23.tgz"
-  integrity sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w==
+  version "4.18.1"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.18.1.tgz#ff2b66c1f6326d59513de2407bf881439812771c"
+  integrity sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==
 
 log-update@^7.2.0:
   version "7.2.0"
@@ -4559,9 +4554,9 @@ node-releases@^2.0.27:
   integrity sha512-TdC8FSgHz8Mwtw9g5L4gR/Sh9XhSP/0DEkQxfEFXOpiul5IiHgHan2VhYYb6agDSfp4KuvltmGApc8HMgUrIkA==
 
 nodemailer@^8.0.1:
-  version "8.0.4"
-  resolved "https://registry.npmjs.org/nodemailer/-/nodemailer-8.0.4.tgz"
-  integrity sha512-k+jf6N8PfQJ0Fe8ZhJlgqU5qJU44Lpvp2yvidH3vp1lPnVQMgi4yEEMPXg5eJS1gFIJTVq1NHBk7Ia9ARdSBdQ==
+  version "8.0.5"
+  resolved "https://registry.yarnpkg.com/nodemailer/-/nodemailer-8.0.5.tgz#2076fb2b5c1ccfe1c88f6e1aa47c0229ea642e0c"
+  integrity sha512-0PF8Yb1yZuQfQbq+5/pZJrtF6WQcjTd5/S4JOHs9PGFxuTqoB/icwuB44pOdURHJbRKX1PPoJZtY7R4VUoCC8w==
 
 normalize-package-data@^8.0.0:
   version "8.0.0"
@@ -5792,10 +5787,10 @@ vite-plugin-restart@^2.0.0:
   dependencies:
     micromatch "^4.0.8"
 
-vite@^7.3.1:
-  version "7.3.1"
-  resolved "https://registry.npmjs.org/vite/-/vite-7.3.1.tgz"
-  integrity sha512-w+N7Hifpc3gRjZ63vYBXA56dvvRlNWRczTdmCBBa+CotUzAPf5b7YMdMR/8CQoeYE5LX3W4wj6RYTgonm1b9DA==
+vite@^7.3.2:
+  version "7.3.2"
+  resolved "https://registry.yarnpkg.com/vite/-/vite-7.3.2.tgz#cb041794d4c1395e28baea98198fd6e8f4b96b5c"
+  integrity sha512-Bby3NOsna2jsjfLVOHKes8sGwgl4TT0E6vvpYgnAYDIF/tie7MRaFthmKuHx1NSXjiTueXH3do80FMQgvEktRg==
   dependencies:
     esbuild "^0.27.0"
     fdir "^6.5.0"
