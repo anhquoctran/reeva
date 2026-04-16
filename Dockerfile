@@ -1,20 +1,23 @@
 # Dockerfile
 
 FROM node:24-alpine AS base
-# Enable Corepack and activate Yarn so builds can use `yarn` when needed
-RUN corepack enable && corepack prepare yarn@stable --activate
 
-# Stage 1: Install all dependencies (development + production)
+# Enable Corepack and prepare pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Stage 1: Install all dependencies for build
 FROM base AS deps
 WORKDIR /app
-ADD package.json yarn.lock ./
-RUN yarn install
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 # Stage 2: Install production only dependencies
+# We use hoisted linker to ensure node_modules is self-contained and copyable
 FROM base AS production-deps
 WORKDIR /app
-ADD package.json yarn.lock ./
-RUN yarn workspaces focus
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm config set node-linker hoisted && \
+    pnpm install --prod --frozen-lockfile
 
 # Stage 3: Build the application
 FROM base AS build
@@ -28,11 +31,10 @@ RUN node ace build
 FROM base AS production
 ENV NODE_ENV=production
 WORKDIR /app
+# Copy hoisted node_modules
 COPY --from=production-deps /app/node_modules /app/node_modules
 COPY --from=build /app/build /app/build
 COPY --from=build /app/package.json /app/package.json
-# Ensure Node ESM import aliases (package.json 'imports') are available in production
-# so #services/* etc resolve correctly for runtime paths.
 
 EXPOSE 3333
 CMD ["node", "build/bin/server.js"]
