@@ -1,0 +1,166 @@
+@cms.layout({ title: 'Edit License' })
+  <div class="max-w-4xl mx-auto space-y-8">
+     <!-- Breadcrumbs -->
+    <div class="flex items-center gap-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest pl-1">
+      <a href="{{ route('cms.licenses.index') }}" class="hover:text-brand-600 transition-colors">Licenses</a>
+      <span>/</span>
+      <span class="text-gray-900 italic tracking-widest uppercase">Edit Entitlement</span>
+    </div>
+
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Modify License metadata</h1>
+      <p class="text-gray-500 text-sm mt-1">Adjust entitlement for {{ license.customerName || license.licenseKey }}. Changes are reflected instantly.</p>
+    </div>
+
+    <div class="card-premium p-8 shadow-xl shadow-gray-100">
+      @form({ action: route('cms.licenses.update', { id: license.id }), method: 'POST' })
+        <div class="space-y-8">
+          
+          <!-- Key and Product Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">License Key</label>
+               <input type="text" name="licenseKey" value="{{ license.licenseKey }}" class="input-base font-mono py-3" placeholder="REEVA-XXXX-XXXX" required />
+            </div>
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Product Name</label>
+               <input type="text" name="productName" value="{{ license.productName }}" class="input-base py-3" placeholder="e.g. Reeva Enterprise" required />
+            </div>
+          </div>
+
+          <!-- Customer Info Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-gray-50">
+             <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Customer Name</label>
+               <input type="text" name="customerName" value="{{ license.customerName || '' }}" class="input-base py-3" placeholder="e.g. John Doe / Acme Corp" />
+            </div>
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Customer Email</label>
+               <input type="email" name="customerEmail" value="{{ license.customerEmail || '' }}" class="input-base py-3" placeholder="e.g. john@example.com" />
+            </div>
+          </div>
+
+          <!-- Status and Expiry Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2 border-t border-gray-50">
+             <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Status</label>
+               <select name="status" class="input-base py-3">
+                 <option value="active" {{ license.status === 'active' ? 'selected' : '' }}>Active</option>
+                 <option value="inactive" {{ license.status === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                 <option value="revoked" {{ license.status === 'revoked' ? 'selected' : '' }}>Revoked</option>
+                 <option value="expired" {{ license.status === 'expired' ? 'selected' : '' }}>Expired</option>
+               </select>
+            </div>
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Max Activations</label>
+               <input type="number" name="maxActivations" value="{{ license.maxActivations }}" class="input-base py-3" min="1" required />
+            </div>
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Expiration Date</label>
+               <input type="date" name="expiresAt" value="{{ license.expiresAt ? license.expiresAt.toISODate() : '' }}" class="input-base py-3" />
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="pt-10 border-t border-gray-50 flex items-center justify-between">
+             <a href="{{ route('cms.licenses.index') }}" class="text-sm font-medium text-gray-400 hover:text-gray-900 transition-colors">Dismiss Changes</a>
+             <button type="submit" class="btn-primary px-10 py-5 shadow-lg shadow-brand-100 rounded-2xl transform active:scale-95 duration-75">
+               Apply Changes
+             </button>
+          </div>
+
+        </div>
+      @end
+    </div>
+
+    <!-- Activation Token Generated Banner -->
+    @if(flashMessages.has('activationToken'))
+      <div class="card-premium bg-brand-600 border-none p-8 text-white relative overflow-hidden group">
+        <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+          <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+        </div>
+        <div class="relative z-10 space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h3 class="text-lg font-bold">New Activation Token Generated!</h3>
+          </div>
+          <p class="text-brand-100 text-sm max-w-2xl">Copy this token and provide it to the client for offline activation. This token is cryptographically bound to the Machine ID you provided.</p>
+          <div class="flex items-center gap-2 bg-black/20 p-4 rounded-xl border border-white/10" x-data="{ copied: false, token: '{{ flashMessages.get('activationToken') }}' }">
+            <code class="flex-1 font-mono text-xs break-all text-brand-50" x-text="token"></code>
+            <button @click="navigator.clipboard.writeText(token); copied = true; setTimeout(() => copied = false, 2000)" 
+                    type="button"
+                    class="p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
+                    :title="copied ? 'Copied!' : 'Copy to Clipboard'">
+              <svg x-show="!copied" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-3 8h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+              <svg x-show="copied" x-cloak class="w-5 h-5 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    @endif
+
+    <!-- Activations Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="lg:col-span-2 space-y-6">
+        <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+          Active Devices
+          <span class="ml-2 px-2 py-0.5 bg-gray-100 text-gray-500 rounded text-xs font-mono">{{ license.activationCount }} / {{ license.maxActivations }}</span>
+        </h2>
+        
+        <div class="card-premium overflow-hidden">
+          <table class="w-full text-left text-sm whitespace-nowrap">
+             <thead class="bg-gray-50/50 border-b border-gray-100 font-bold text-[10px] text-gray-400 uppercase tracking-widest">
+               <tr>
+                 <th class="px-6 py-4">Machine ID / Fingerprint</th>
+                 <th class="px-6 py-4">Activated Date</th>
+                 <th class="px-6 py-4 text-right">Action</th>
+               </tr>
+             </thead>
+             <tbody class="divide-y divide-gray-50">
+               @each(activation in activations)
+                 <tr class="hover:bg-gray-50/50 transition-colors">
+                   <td class="px-6 py-4 font-mono text-xs text-brand-600 font-bold">{{ activation.machineId }}</td>
+                   <td class="px-6 py-4 text-xs text-gray-500">{{ activation.createdAt.toFormat('dd MMM yyyy, HH:mm') }}</td>
+                   <td class="px-6 py-4 text-right">
+                      <form action="{{ route('cms.licenses.activations.destroy', { id: license.id, activationId: activation.id }) }}" method="POST">
+                        {{ csrfField() }}
+                        <button type="submit" class="text-red-600 hover:text-red-700 font-bold text-[10px] uppercase tracking-wider transition-colors">Revoke Device</button>
+                      </form>
+                   </td>
+                 </tr>
+               @else
+                 <tr>
+                    <td colspan="3" class="px-6 py-12 text-center text-gray-400 italic text-sm">No devices activated yet.</td>
+                 </tr>
+               @end
+             </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <h2 class="text-xl font-bold text-gray-900">Activate Device</h2>
+        <div class="card-premium p-6">
+          <form action="{{ route('cms.licenses.activate', { id: license.id }) }}" method="POST" class="space-y-6">
+            {{ csrfField() }}
+            <p class="text-xs text-gray-500 leading-relaxed">Enter the Hardware Fingerprint provided by the client's desktop application to generate a machine-locked signed token.</p>
+            
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Machine Fingerprint (HID)</label>
+               <input type="text" name="machineId" class="input-base font-mono text-xs py-3" placeholder="e.g. CPU-98X-MB-221" required />
+            </div>
+
+            <button type="submit" 
+                    {{ license.activationCount >= license.maxActivations ? 'disabled' : '' }}
+                    class="btn-primary w-full py-4 text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed">
+               {{ license.activationCount >= license.maxActivations ? 'Limit Reached' : 'Generate Token' }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+@end

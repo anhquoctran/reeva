@@ -1,0 +1,74 @@
+@cms.layout({ title: 'Create License' })
+  <div class="max-w-4xl mx-auto space-y-8">
+     <!-- Breadcrumbs -->
+    <div class="flex items-center gap-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest pl-1">
+      <a href="{{ route('cms.licenses.index') }}" class="hover:text-brand-600 transition-colors">Licenses</a>
+      <span>/</span>
+      <span class="text-gray-900">New Entitlement</span>
+    </div>
+
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 italic">Create New License</h1>
+      <p class="text-gray-500 text-sm mt-1">Generate a new license key and assign it to a customer.</p>
+    </div>
+
+    <div class="card-premium p-8">
+      @form({ action: route('cms.licenses.store'), method: 'POST' })
+        <div class="space-y-8">
+          
+          <!-- Key and Product Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">License Key (Optional)</label>
+               <input type="text" name="licenseKey" class="input-base font-mono py-3" placeholder="Leave blank to auto-generate" />
+            </div>
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Product Name</label>
+               <input type="text" name="productName" class="input-base py-3" placeholder="e.g. Reeva Enterprise" required />
+            </div>
+          </div>
+
+          <!-- Customer Info Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-gray-50">
+             <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Customer Name</label>
+               <input type="text" name="customerName" class="input-base py-3" placeholder="e.g. John Doe / Acme Corp" />
+            </div>
+            <div class="space-y-2">
+               <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Customer Email</label>
+               <input type="email" name="customerEmail" class="input-base py-3" placeholder="e.g. john@example.com" />
+            </div>
+          </div>
+
+          <!-- Status and Expiry Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2 border-t border-gray-50">
+             <div class="space-y-2">
+                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Initial Status</label>
+                <select name="status" class="input-base py-3">
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+             </div>
+             <div class="space-y-2">
+                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Max Activations</label>
+                <input type="number" name="maxActivations" value="1" class="input-base py-3" min="1" required />
+             </div>
+             <div class="space-y-2">
+                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">Expiration Date</label>
+                <input type="date" name="expiresAt" class="input-base py-3" />
+             </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="pt-10 border-t border-gray-50 flex items-center justify-between">
+             <a href="{{ route('cms.licenses.index') }}" class="text-sm font-medium text-gray-400 hover:text-gray-900 transition-colors">Cancel & Return</a>
+             <button type="submit" class="btn-primary px-10 py-5 shadow-lg shadow-brand-100 rounded-2xl transform active:scale-95 duration-75">
+               Generate License
+             </button>
+          </div>
+
+        </div>
+      @end
+    </div>
+  </div>
+@end

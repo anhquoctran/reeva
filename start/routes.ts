@@ -27,6 +27,7 @@ router.get('/docs', async ({ response }) => {
 // Lazy controller imports
 const DashboardsController = () => import('#controllers/cms/dashboards_controller')
 const VersionsController = () => import('#controllers/cms/versions_controller')
+const LicensesController = () => import('#controllers/cms/licenses_controller')
 const ArtifactsController = () => import('#controllers/cms/artifacts_controller')
 const StorageProvidersController = () => import('#controllers/cms/storage_providers_controller')
 const SettingsController = () => import('#controllers/cms/settings_controller')
@@ -72,9 +73,22 @@ router
         router
           .post('/versions/:id/toggle', [VersionsController, 'toggle'])
           .as('cms.versions.toggle')
-        router
-          .post('/versions/:id/delete', [VersionsController, 'destroy'])
+        router.get('/versions/:id/delete', [VersionsController, 'destroy'])
           .as('cms.versions.destroy')
+
+        router.get('/licenses', [LicensesController, 'index']).as('cms.licenses.index')
+        router.get('/licenses/create', [LicensesController, 'create']).as('cms.licenses.create')
+        router.post('/licenses', [LicensesController, 'store']).as('cms.licenses.store')
+        router.get('/licenses/:id/edit', [LicensesController, 'edit']).as('cms.licenses.edit')
+        router.post('/licenses/:id', [LicensesController, 'update']).as('cms.licenses.update')
+        router.post('/licenses/:id/activate', [LicensesController, 'activate']).as('cms.licenses.activate')
+        router.post('/licenses/:id/activations/:activationId/delete', [LicensesController, 'destroyActivation']).as('cms.licenses.activations.destroy')
+        router
+          .post('/licenses/:id/toggle', [LicensesController, 'toggle'])
+          .as('cms.licenses.toggle')
+        router
+          .post('/licenses/:id/delete', [LicensesController, 'destroy'])
+          .as('cms.licenses.destroy')
 
         router.get('/artifacts', [ArtifactsController, 'index']).as('cms.artifacts.index')
         router.get('/artifacts/create', [ArtifactsController, 'create']).as('cms.artifacts.create')

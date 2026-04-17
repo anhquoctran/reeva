@@ -4,6 +4,7 @@ module.exports = {
       name: 'reeva',
       script: './bin/server.js',
       cwd: './build',
+      exec_mode: 'fork',
       instances: 1,
       autorestart: true,
       watch: false,

@@ -234,3 +234,48 @@ export class VersionSchema extends BaseModel {
   @column.dateTime()
   declare releaseDate: DateTime | null
 }
+
+export class LicenseSchema extends BaseModel {
+  static $columns = ['activationCount', 'createdAt', 'customerEmail', 'customerName', 'deletedAt', 'expiresAt', 'id', 'licenseKey', 'maxActivations', 'productName', 'revokedAt', 'status', 'updatedAt'] as const
+  $columns = LicenseSchema.$columns
+  @column()
+  declare activationCount: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare customerEmail: string | null
+  @column()
+  declare customerName: string | null
+  @column.dateTime()
+  declare deletedAt: DateTime | null
+  @column.dateTime()
+  declare expiresAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: string
+  @column()
+  declare licenseKey: string
+  @column()
+  declare maxActivations: number
+  @column()
+  declare productName: string
+  @column.dateTime()
+  declare revokedAt: DateTime | null
+  @column()
+  declare status: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+}
+
+export class LicenseActivationSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'licenseId', 'machineId'] as const
+  $columns = LicenseActivationSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: string
+  @column()
+  declare licenseId: string
+  @column()
+  declare machineId: string
+}
+ 
