@@ -35,7 +35,8 @@ export const http = defineConfig({
   /**
    * Trust proxy headers
    */
-  trustProxy: true,
+  // Forwarded headers are honored only from explicitly configured proxies.
+  trustProxy: env.get('TRUSTED_PROXIES') || false,
 
   /**
    * Manage cookies configuration. The settings for the session id cookie are

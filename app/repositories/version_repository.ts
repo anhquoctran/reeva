@@ -6,7 +6,7 @@ export default class VersionRepository {
   }
 
   async findById(id: string | number) {
-    return await Version.findOrFail(id)
+    return await Version.query().preload('software').where('id', id).firstOrFail()
   }
 
   async create(data: Partial<Version>) {

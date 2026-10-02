@@ -43,7 +43,11 @@ new Ignitor(APP_ROOT, { importer: IMPORTER })
   })
   .testRunner()
   .configure(async (app) => {
-    const { runnerHooks, ...config } = await import('#tests/bootstrap')
+    // Keep the test bootstrap optional at production build time. Production
+    // images intentionally omit the tests directory, while `ace test` resolves
+    // it relative to this entrypoint in a development checkout.
+    const bootstrapUrl = new URL('../tests/bootstrap.js', import.meta.url).href
+    const { runnerHooks, ...config } = await import(bootstrapUrl)
 
     processCLIArgs(process.argv.splice(2))
     configure({

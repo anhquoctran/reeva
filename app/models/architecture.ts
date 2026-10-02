@@ -5,6 +5,7 @@ import { compose } from '@adonisjs/core/helpers'
 import { randomUUID } from 'node:crypto'
 
 export default class Architecture extends compose(ArchitectureSchema, SoftDeletes) {
+  static selfAssignPrimaryKey = true
 
   @beforeCreate()
   static async generateUuid(architecture: Architecture) {

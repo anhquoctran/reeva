@@ -21,6 +21,7 @@ const AuthFinder = withAuthFinder(hash, {
  * through the withAuthFinder mixin.
  */
 export default class User extends compose(UserSchema, AuthFinder, SoftDeletes) {
+  static selfAssignPrimaryKey = true
   static rememberMeTokens = DbRememberMeTokensProvider.forModel(User)
 
   declare password?: string
@@ -39,11 +40,13 @@ export default class User extends compose(UserSchema, AuthFinder, SoftDeletes) {
   declare isActive: boolean
 
   @column()
+  declare authVersion: number
+
+  @column()
   declare theme: string
 
   @column()
   declare accentColor: number
-
 
   get initials() {
     if (this.fullName) {

@@ -2,21 +2,10 @@ import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 
 export default class RealIpMiddleware {
-  
   async handle(ctx: HttpContext, next: NextFn) {
-
-    const { request } = ctx
-
-    let ip =
-      request.header('cf-connecting-ip') ||
-      request.header('x-real-ip') ||
-      request.header('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.ip()
-
-    // Normalize
-    ip = this.normalizeIp(ip)
-
-    ctx.incomingIp = ip
+    // request.ip() only uses forwarded headers when the HTTP server is
+    // explicitly configured to trust the connecting proxy.
+    ctx.incomingIp = this.normalizeIp(ctx.request.ip())
     await next()
   }
 

@@ -1,13 +1,15 @@
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import StorageProviderService from '#services/storage_provider_service'
+import { parsePage } from '#services/pagination'
 
 @inject()
 export default class StorageProvidersController {
   constructor(protected storageProviderService: StorageProviderService) {}
 
-  async index({ request, view }: HttpContext) {
-    const page = request.input('page', 1)
+  async index({ request, response, view }: HttpContext) {
+    const page = parsePage(request.input('page'))
+    if (!page) return response.status(400).send('Invalid page.')
     const limit = 10
     const providers = await this.storageProviderService.getPaginatedProviders(page, limit)
     providers.baseUrl(request.url())
@@ -22,29 +24,35 @@ export default class StorageProvidersController {
       const usage = await this.storageProviderService.getUsageStats(defaultProvider)
       currentUsage = usage.currentUsage
       usagePercentage = usage.usagePercentage
-      
+
       if (currentUsage > 0) {
         const kb = currentUsage / 1024
         if (kb <= 1000) {
-          currentUsageFormatted = `${parseFloat(kb.toFixed(2))} KB`
+          currentUsageFormatted = `${Number.parseFloat(kb.toFixed(2))} KB`
         } else {
           const mb = kb / 1024
           if (mb <= 1000) {
-            currentUsageFormatted = `${parseFloat(mb.toFixed(2))} MB`
+            currentUsageFormatted = `${Number.parseFloat(mb.toFixed(2))} MB`
           } else {
             const gb = mb / 1024
             if (gb <= 1000) {
-              currentUsageFormatted = `${parseFloat(gb.toFixed(2))} GB`
+              currentUsageFormatted = `${Number.parseFloat(gb.toFixed(2))} GB`
             } else {
               const tb = gb / 1024
-              currentUsageFormatted = `${parseFloat(tb.toFixed(2))} TB`
+              currentUsageFormatted = `${Number.parseFloat(tb.toFixed(2))} TB`
             }
           }
         }
       }
     }
 
-    return view.render('pages/cms/storage/index', { providers, defaultProvider, currentUsage, usagePercentage, currentUsageFormatted })
+    return view.render('pages/cms/storage/index', {
+      providers,
+      defaultProvider,
+      currentUsage,
+      usagePercentage,
+      currentUsageFormatted,
+    })
   }
 
   async activate({ params, response, session }: HttpContext) {

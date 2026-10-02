@@ -12,6 +12,7 @@ export const controllers = {
     Dashboards: () => import('#controllers/cms/dashboards_controller'),
     Profiles: () => import('#controllers/cms/profiles_controller'),
     Settings: () => import('#controllers/cms/settings_controller'),
+    Software: () => import('#controllers/cms/software_controller'),
     StorageProviders: () => import('#controllers/cms/storage_providers_controller'),
     Users: () => import('#controllers/cms/users_controller'),
     Versions: () => import('#controllers/cms/versions_controller'),

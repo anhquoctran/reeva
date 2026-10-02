@@ -14,7 +14,14 @@
 
     <div class="card-premium p-8 shadow-xl shadow-gray-100">
       @form({ action: route('cms.versions.update', { id: version.id }), method: 'POST' })
+        <input type="hidden" name="softwareId" value="{{ version.softwareId }}" />
         <div class="space-y-8">
+
+          <div class="max-w-md space-y-2">
+            <label class="text-[10px] font-bold text-gray-450 uppercase tracking-widest">Software</label>
+            <input value="{{ version.software.name }}" class="input-base bg-gray-50" disabled readonly />
+            <p class="text-[10px] text-gray-400">A version stays with this software so existing artifacts keep their product identity.</p>
+          </div>
           
           <!-- Semantic Versioning Grid -->
           <div class="grid grid-cols-1 md:grid-cols-4 gap-6">

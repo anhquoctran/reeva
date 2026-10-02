@@ -1,14 +1,13 @@
-import { BaseStorageProvider } from '../BaseStorageProvider.js'
+import { type BaseStorageProvider } from '../base_storage_provider.js'
 import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
-  CopyObjectCommand,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import crypto from 'node:crypto'
-import { Readable } from 'node:stream'
+import { type Readable } from 'node:stream'
+import type { UploadOptions } from '../base_storage_provider.js'
 
 /**
  * AWSS3Provider handles file storage on Amazon S3.
@@ -19,12 +18,13 @@ export default class AWSS3Provider implements BaseStorageProvider {
 
   constructor(protected config: any) {
     this.bucket = config.bucket
+    const credentials =
+      config.accessKey && config.secretKey
+        ? { accessKeyId: config.accessKey, secretAccessKey: config.secretKey }
+        : undefined
     this.client = new S3Client({
       region: config.region || 'us-east-1',
-      credentials: {
-        accessKeyId: config.accessKey,
-        secretAccessKey: config.secretKey,
-      },
+      credentials,
       endpoint: config.endpoint,
       forcePathStyle: config.forcePathStyle === true || config.forcePathStyle === 'true',
     })
@@ -33,14 +33,15 @@ export default class AWSS3Provider implements BaseStorageProvider {
   /**
    * Uploads a file buffer to S3
    */
-  async upload(file: Buffer, options?: any): Promise<{ key: string }> {
-    const key = options?.key || `${crypto.randomUUID()}-${options?.fileName || 'untitled'}`
+  async upload(file: Readable, options: UploadOptions): Promise<{ key: string }> {
+    const { key } = options
 
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       Body: file,
-      ContentType: options?.contentType || 'application/octet-stream',
+      ContentLength: options.contentLength,
+      ContentType: options.contentType,
     })
 
     await this.client.send(command)
@@ -70,6 +71,9 @@ export default class AWSS3Provider implements BaseStorageProvider {
     })
 
     const response = await this.client.send(command)
+    if (!response.Body || !('pipe' in response.Body)) {
+      throw new Error('Storage provider returned no readable object body.')
+    }
     return response.Body as Readable
   }
 
@@ -83,24 +87,5 @@ export default class AWSS3Provider implements BaseStorageProvider {
     })
 
     await this.client.send(command)
-  }
-
-  /**
-   * Moves an object to the archive folder in S3
-   */
-  async archive(key: string): Promise<void> {
-    const archiveKey = `archive/${key}`
-
-    // Copy to archive destination first
-    const copyCommand = new CopyObjectCommand({
-      Bucket: this.bucket,
-      CopySource: encodeURIComponent(`${this.bucket}/${key}`),
-      Key: archiveKey,
-    })
-
-    await this.client.send(copyCommand)
-
-    // Delete the original source object
-    await this.delete(key)
   }
 }

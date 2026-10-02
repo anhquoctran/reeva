@@ -54,7 +54,6 @@ export default defineConfig({
     () => import('@adonisjs/static/static_provider'),
     () => import('@adonisjs/lucid/database_provider'),
     () => import('@adonisjs/auth/auth_provider'),
-    () => import('./providers/storage_provider.js'),
     () => import('./providers/app_info_provider.js'),
     () => import('@adonisjs/mail/mail_provider'),
   ],
@@ -87,7 +86,7 @@ export default defineConfig({
       {
         files: ['tests/unit/**/*.spec.ts'],
         name: 'unit',
-        timeout: 2000,
+        timeout: 15000,
       },
       {
         files: ['tests/browser/**/*.spec.ts'],

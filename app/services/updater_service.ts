@@ -1,61 +1,109 @@
 import { inject } from '@adonisjs/core'
 import ArtifactRepository from '#repositories/artifact_repository'
-import PlatformRepository from '#repositories/platform_repository'
-import ArchitectureRepository from '#repositories/architecture_repository'
-import StorageManager from '#services/storage/storage_manager'
-import DownloadHistory from '#models/download_history'
+import SoftwareRepository from '#repositories/software_repository'
+import Software from '#models/software'
 import Platform from '#models/platform'
 import Architecture from '#models/architecture'
+import StorageManager from '#services/storage/storage_manager'
+import DownloadHistory from '#models/download_history'
+import db from '@adonisjs/lucid/services/db'
+import logger from '@adonisjs/core/services/logger'
+import { isIP } from 'node:net'
 import semver from 'semver'
+import { Readable } from 'node:stream'
+
+export class PublicArtifactNotFoundError extends Error {}
+export class ArtifactStorageError extends Error {}
+export class UnsupportedReleaseTargetError extends Error {}
+export class PublicSoftwareNotFoundError extends Error {}
 
 @inject()
 export default class UpdaterService {
   constructor(
     protected artifactRepository: ArtifactRepository,
-    protected platformRepository: PlatformRepository,
-    protected architectureRepository: ArchitectureRepository
-  ) { }
+    protected softwareRepository: SoftwareRepository
+  ) {}
 
-  async checkForUpdate(platform: string, arch: string, version: string, channel: string) {
-    const p = await Platform.findBy('name', platform)
-    const a = await Architecture.findBy('name', arch)
+  private async resolveSoftware(slug?: string): Promise<Software> {
+    const software = slug
+      ? await this.softwareRepository.findActiveBySlug(slug)
+      : await this.softwareRepository.findActiveDefault()
+    if (!software) throw new PublicSoftwareNotFoundError('Software is not available.')
+    return software
+  }
 
-    if (!p || !a) {
-      throw new Error('Platform or architecture not supported.')
+  async checkForUpdate(
+    platform: string,
+    arch: string,
+    version: string,
+    channel: string,
+    softwareSlug?: string
+  ) {
+    const current = semver.parse(version)
+    if (!current) throw new Error('Invalid semantic version.')
+
+    const [software, platformRow, architectureRow] = await Promise.all([
+      this.resolveSoftware(softwareSlug),
+      Platform.findBy('name', platform),
+      Architecture.findBy('name', arch),
+    ])
+    if (!platformRow || !architectureRow) {
+      throw new UnsupportedReleaseTargetError('Platform or architecture not supported.')
     }
 
-    const artifacts = await this.artifactRepository.query()
+    const update = await this.artifactRepository
+      .publicQuery(software.id)
       .join('versions as v', 'v.id', 'artifacts.version_id')
-      .where('artifacts.platform_id', p.id)
-      .where('artifacts.architecture_id', a.id)
+      .where('artifacts.platform_id', platformRow.id)
+      .where('artifacts.architecture_id', architectureRow.id)
       .where('artifacts.channel', channel)
-      .where('artifacts.is_published', true)
-      .where('v.is_active', true)
-      .select('artifacts.*')
+      .where((query) => {
+        query
+          .where('v.major', '>', current.major)
+          .orWhere((major) =>
+            major.where('v.major', current.major).where('v.minor', '>', current.minor)
+          )
+          .orWhere((minor) =>
+            minor
+              .where('v.major', current.major)
+              .where('v.minor', current.minor)
+              .where('v.patch', '>', current.patch)
+          )
+
+        // A stable DB release is newer than a pre-release with the same core
+        // version (for example 1.2.0 is newer than 1.2.0-rc.1).
+        if (current.prerelease.length) {
+          query.orWhere((sameCore) =>
+            sameCore
+              .where('v.major', current.major)
+              .where('v.minor', current.minor)
+              .where('v.patch', current.patch)
+          )
+        }
+      })
       .preload('version')
       .orderBy('v.major', 'desc')
       .orderBy('v.minor', 'desc')
       .orderBy('v.patch', 'desc')
-
-    const update = artifacts.find((art) => {
-      const vStr = `${art.version.major}.${art.version.minor}.${art.version.patch}`
-      return semver.valid(vStr) && semver.gt(vStr, version)
-    })
+      .first()
 
     return update ?? null
   }
 
-  async getLatest(platform: string, arch: string, channel: string) {
-    return await this.artifactRepository.query()
+  async getLatest(platform: string, arch: string, channel: string, softwareSlug?: string) {
+    const [software, platformRow, architectureRow] = await Promise.all([
+      this.resolveSoftware(softwareSlug),
+      Platform.findBy('name', platform),
+      Architecture.findBy('name', arch),
+    ])
+    if (!platformRow || !architectureRow) return null
+
+    return this.artifactRepository
+      .publicQuery(software.id)
       .join('versions as v', 'v.id', 'artifacts.version_id')
-      .join('platforms as p', 'p.id', 'artifacts.platform_id')
-      .join('architectures as ar', 'ar.id', 'artifacts.architecture_id')
-      .where('p.name', platform)
-      .where('ar.name', arch)
+      .where('artifacts.platform_id', platformRow.id)
+      .where('artifacts.architecture_id', architectureRow.id)
       .where('artifacts.channel', channel)
-      .where('artifacts.is_published', true)
-      .where('v.is_active', true)
-      .select('artifacts.*')
       .preload('version')
       .preload('platform')
       .preload('architecture')
@@ -65,77 +113,102 @@ export default class UpdaterService {
       .first()
   }
 
-  async getReleases(platform: string, arch: string, channel: string, limit = 10, page = 1) {
-    const p = await Platform.findBy('name', platform)
-    const a = await Architecture.findBy('name', arch)
+  async getReleases(
+    platform: string,
+    arch: string,
+    channel: string,
+    limit = 20,
+    page = 1,
+    softwareSlug?: string
+  ) {
+    const [software, platformRow, architectureRow] = await Promise.all([
+      this.resolveSoftware(softwareSlug),
+      Platform.findBy('name', platform),
+      Architecture.findBy('name', arch),
+    ])
 
-    if (!p || !a) {
+    if (!platformRow || !architectureRow) {
       throw new Error('Platform or architecture not supported.')
     }
 
-    const offset = Math.max(0, page - 1) * limit
-    const query = this.artifactRepository.query()
+    const offset = (page - 1) * limit
+    const query = this.artifactRepository
+      .publicQuery(software.id)
       .join('versions as v', 'v.id', 'artifacts.version_id')
-      .join('platforms as p', 'p.id', 'artifacts.platform_id')
-      .join('architectures as ar', 'ar.id', 'artifacts.architecture_id')
-      .where('p.name', platform)
-      .where('ar.name', arch)
+      .where('artifacts.platform_id', platformRow.id)
+      .where('artifacts.architecture_id', architectureRow.id)
       .where('artifacts.channel', channel)
-      .where('artifacts.is_published', true)
-      .where('v.is_active', true)
-      .select('artifacts.*')
       .preload('version')
       .preload('platform')
       .preload('architecture')
       .orderBy('v.major', 'desc')
       .orderBy('v.minor', 'desc')
       .orderBy('v.patch', 'desc')
+      .orderBy('artifacts.id', 'asc')
 
     const countQuery = await query.clone().count('* as total').first()
-
-    const totalRecords = Number(countQuery?.$extras?.total || 0)
-
+    const totalRecords = Number(countQuery?.$extras.total || 0)
     const results = await query.offset(offset).limit(limit)
 
-    return { results,
+    return {
+      results,
       pagination: {
         total: totalRecords,
         page,
         limit,
         totalPages: Math.ceil(totalRecords / limit),
-      }
-     }
+      },
+    }
   }
 
-  private async getGeoLocation(ipAddress: string) {
-    const response = await fetch(`http://ip-api.com/json/${ipAddress}`)
-    const data = await response.json() as { lat: number, lon: number, countryCode: string };
-    return { lat: data.lat, lng: data.lon, countryCode: data.countryCode }
-  }
-
-  async recordAndStream(artifactId: string | number, ipAddress: string, userAgent?: string) {
-    const Artifact = (await import('#models/artifact')).default
-    const artifact = await Artifact.findOrFail(artifactId)
-    await artifact.load('storageProvider')
-
+  async recordAndStream(
+    artifactId: string,
+    ipAddress: string,
+    userAgent?: string,
+    softwareSlug?: string
+  ) {
+    const software = await this.resolveSoftware(softwareSlug)
+    const artifact = await this.artifactRepository.findPublicById(artifactId, software.id)
+    if (!artifact) throw new PublicArtifactNotFoundError('Public artifact not found.')
     if (!artifact.storageProvider) {
-      throw new Error('Malformed artifact: storage provider missing.')
+      throw new ArtifactStorageError('Artifact storage provider is unavailable.')
     }
 
-    const storage = StorageManager.resolve(artifact.storageProvider)
-    const stream = await storage.getStream(artifact.storageKey)
+    let stream: Readable
+    try {
+      stream = await StorageManager.resolve(artifact.storageProvider).getStream(artifact.storageKey)
+    } catch (error) {
+      throw new ArtifactStorageError('Artifact storage is temporarily unavailable.', {
+        cause: error,
+      })
+    }
 
-    // Track download metric & history
-    artifact.downloadCount = (artifact.downloadCount || 0) + 1
-    await artifact.save()
-    const geolocation = await this.getGeoLocation(ipAddress)
-
-    await DownloadHistory.create({
-      artifactId: artifact.id,
-      ipAddress,
-      userAgent,
-      ...geolocation,
+    stream.on('error', (error) => {
+      logger.warn({ err: error, artifactId }, 'Artifact download stream failed')
     })
+
+    try {
+      await db.transaction(async (trx) => {
+        await trx.from('artifacts').where('id', artifact.id).increment('download_count', 1)
+
+        await DownloadHistory.create(
+          {
+            artifactId: artifact.id,
+            ipAddress: isIP(ipAddress) ? ipAddress.slice(0, 50) : null,
+            userAgent: userAgent?.slice(0, 2048) || null,
+            lat: null,
+            lng: null,
+            countryCode: null,
+          },
+          { client: trx }
+        )
+      })
+    } catch (error) {
+      logger.warn(
+        { err: error, artifactId: artifact.id },
+        'Could not record artifact download metrics'
+      )
+    }
 
     return { artifact, stream }
   }

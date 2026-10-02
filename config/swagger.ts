@@ -1,11 +1,11 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const directoryName = path.dirname(fileURLToPath(import.meta.url))
 
 export default {
-  path: path.join(__dirname, '../'),
-  appPath: path.join(__dirname, '../app/controllers'),
+  path: path.join(directoryName, '../'),
+  appPath: path.join(directoryName, '../app/controllers'),
   title: 'Reeva OTA API Documentation',
   version: '1.0.0',
   description: 'Dynamic Over-the-Air Update Infrastructure Distribution API Specification',
@@ -18,5 +18,5 @@ export default {
     headers: [],
   },
   persistAuthorization: true,
-  debug: true
+  debug: true,
 }

@@ -1,13 +1,15 @@
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import UserService from '#services/user_service'
+import { parsePage } from '#services/pagination'
 
 @inject()
 export default class UsersController {
   constructor(protected userService: UserService) {}
 
-  async index({ request, view }: HttpContext) {
-    const page = request.input('page', 1)
+  async index({ request, response, view }: HttpContext) {
+    const page = parsePage(request.input('page'))
+    if (!page) return response.status(400).send('Invalid page.')
     const limit = 10
     const users = await this.userService.paginateUsers(page, limit)
     users.baseUrl(request.url())
@@ -20,18 +22,22 @@ export default class UsersController {
   }
 
   async store({ request, session, response }: HttpContext) {
-    const { email, full_name } = request.all()
+    const email = request.input('email')
+    const fullName = request.input('full_name')
 
     // Basic email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!email || !emailRegex.test(email)) {
+    if (typeof email !== 'string' || email.length > 255 || !emailRegex.test(email)) {
       session.flash('error', 'Please enter a valid email address.')
       return response.redirect().back()
     }
 
     try {
-      const { randomPassword } = await this.userService.createUser(email, full_name || null)
-      
+      const { randomPassword } = await this.userService.createUser(
+        email,
+        typeof fullName === 'string' ? fullName.trim() || null : null
+      )
+
       session.flash('success', 'User created successfully.')
       session.flash('tempPassword', randomPassword)
       session.flash('tempEmail', email)
@@ -48,8 +54,15 @@ export default class UsersController {
   }
 
   async update({ params, request, session, response }: HttpContext) {
-    const { full_name } = request.all()
-    const user = await this.userService.updateUser(params.id, full_name || null)
+    const fullName = request.input('full_name')
+    if (fullName !== undefined && typeof fullName !== 'string') {
+      session.flash('error', 'Name must be text.')
+      return response.redirect().back()
+    }
+    const user = await this.userService.updateUser(
+      params.id,
+      typeof fullName === 'string' ? fullName.trim() || null : null
+    )
 
     session.flash('success', `User "${user.email}" updated successfully.`)
     return response.redirect().toRoute('cms.users.index')
@@ -60,7 +73,7 @@ export default class UsersController {
 
     try {
       const { email, newPassword } = await this.userService.resetPassword(params.id, currentUser.id)
-      
+
       session.flash('success', 'Password reset successfully.')
       session.flash('tempPassword', newPassword)
       session.flash('tempEmail', email)

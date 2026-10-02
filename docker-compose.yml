@@ -18,6 +18,7 @@ services:
       DB_USER: ${MYSQLUSER:-${DB_USER}}
       DB_PASSWORD: ${MYSQLPASSWORD:-${DB_PASSWORD}}
       DB_DATABASE: ${MYSQLDATABASE:-${DB_DATABASE}}
+      SQLITE_DATABASE_PATH: ${SQLITE_DATABASE_PATH:-/app/storage/reeva.sqlite3}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       APP_KEY: ${APP_KEY}
       APP_URL: ${APP_URL}
@@ -30,3 +31,8 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
     command: node build/bin/server.js
+    volumes:
+      - reeva_storage:/app/storage
+
+volumes:
+  reeva_storage:

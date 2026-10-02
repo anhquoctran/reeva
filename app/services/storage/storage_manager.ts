@@ -1,14 +1,14 @@
-import StorageProvider from '#models/storage_provider'
-import LocalProvider from '#services/storage/providers/LocalProvider'
-import MinIOProvider from '#services/storage/providers/MinIOProvider'
-import AWSS3Provider from '#services/storage/providers/AWSS3Provider'
-import SeaweedFSProvider from '#services/storage/providers/SeaweedFSProvider'
-import type { BaseStorageProvider } from '#services/storage/BaseStorageProvider'
+import type StorageProvider from '#models/storage_provider'
+import LocalProvider from './providers/local_provider.js'
+import MinIOProvider from './providers/min_io_provider.js'
+import AWSS3Provider from './providers/aws_s3_provider.js'
+import SeaweedFSProvider from './providers/seaweed_fs_provider.js'
+import type { BaseStorageProvider } from '#services/storage/base_storage_provider'
 
 /**
  * Storage Manager maps provider types to their actual implementations.
  */
-const PROVIDER_MAP: Record<string, any> = {
+const PROVIDER_MAP: Record<string, new (config: unknown) => BaseStorageProvider> = {
   local: LocalProvider,
   minio: MinIOProvider,
   s3: AWSS3Provider,
@@ -16,12 +16,10 @@ const PROVIDER_MAP: Record<string, any> = {
 }
 
 export default class StorageManager {
-  private static _driver: BaseStorageProvider
-
   /**
    * Resolves a StorageProvider model instance into a concrete implementation.
    */
-  static resolve(provider: StorageProvider) {
+  static resolve(provider: StorageProvider): BaseStorageProvider {
     const driverName = (provider.config as any)?.driver || provider.type
     const ProviderClass = PROVIDER_MAP[driverName]
 
@@ -30,35 +28,5 @@ export default class StorageManager {
     }
 
     return new ProviderClass(provider.config)
-  }
-
-  /**
-   * Boots the storage manager by loading the current active provider from DB
-   */
-  static async boot() {
-    console.log('[StorageManager] Booting active provider...')
-    try {
-      const provider = await StorageProvider.query().where('isDefault', true).first()
-      
-      if (provider) {
-        this._driver = this.resolve(provider)
-        console.log(`[StorageManager] Loaded active provider: ${provider.name} (${provider.type})`)
-      } else {
-        console.warn('[StorageManager] No active storage provider found in database.')
-      }
-    } catch (error) {
-      console.warn('[StorageManager] Failed to fetch provider (migrations pending?):', error.message)
-    }
-
-  }
-
-  /**
-   * Returns the currently active driver
-   */
-  static getDriver() {
-    if (!this._driver) {
-      throw new Error('Storage driver not initialized. Call StorageManager.boot() first.')
-    }
-    return this._driver
   }
 }

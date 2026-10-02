@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import Artifact from '#models/artifact'
 
 export default class DownloadHistory extends compose(DownloadHistorySchema, SoftDeletes) {
+  static selfAssignPrimaryKey = true
 
   @belongsTo(() => Artifact)
   declare artifact: BelongsTo<typeof Artifact>

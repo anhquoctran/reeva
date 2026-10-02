@@ -1,33 +1,53 @@
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
-import ArtifactService from '#services/artifact_service'
+import ArtifactService, { artifactDetailsDto } from '#services/artifact_service'
+import { parsePage } from '#services/pagination'
+import SoftwareService from '#services/software_service'
 
 @inject()
 export default class ArtifactsController {
-  constructor(protected artifactService: ArtifactService) {}
+  constructor(
+    protected artifactService: ArtifactService,
+    protected softwareService: SoftwareService
+  ) {}
 
   /** Returns artifact details and paginated download history as JSON. */
   async details({ params, request, response }: HttpContext) {
-    const page = request.input('page', 1)
+    const page = parsePage(request.input('page'))
+    if (!page) return response.status(400).json({ error: 'Invalid page.' })
     const { artifact, history } = await this.artifactService.getDetails(params.id, page)
-    return response.json({ artifact, history: history.toJSON() })
+    return response.json({ artifact: artifactDetailsDto(artifact), history: history.toJSON() })
   }
 
   /** Rebuild ALL artifact filenames and recalculate checksums. */
   async rebuildAllNames({ response, session }: HttpContext) {
     const updatedCount = await this.artifactService.rebuildAllNames()
-    session.flash('success', `Successfully synchronized ${updatedCount} artifacts (filenames and multi-algorithm checksums).`)
+    session.flash(
+      'success',
+      `Successfully synchronized ${updatedCount} artifacts (filenames and multi-algorithm checksums).`
+    )
     return response.redirect().back()
   }
 
-  async index({ request, view }: HttpContext) {
-    const page = request.input('page', 1)
+  async index({ request, response, view }: HttpContext) {
+    const page = parsePage(request.input('page'))
+    if (!page) return response.status(400).send('Invalid page.')
     const limit = 10
     const filters = {
       fileName: request.input('fileName'),
       versionId: request.input('versionId'),
       platformId: request.input('platformId'),
       architectureId: request.input('architectureId'),
+      softwareId: request.input('softwareId'),
+    }
+
+    const [softwareProducts, defaultSoftware] = await Promise.all([
+      this.softwareService.getAll(),
+      this.softwareService.getDefault(),
+    ])
+    filters.softwareId = filters.softwareId || defaultSoftware.id
+    if (!softwareProducts.some((software) => software.id === filters.softwareId)) {
+      return response.status(400).send('Invalid software selection.')
     }
 
     const { artifacts, versions, platforms, architectures } =
@@ -42,6 +62,8 @@ export default class ArtifactsController {
       versions,
       platforms,
       architectures,
+      softwareProducts,
+      selectedSoftwareId: filters.softwareId,
     })
   }
 
@@ -119,7 +141,10 @@ export default class ArtifactsController {
   async publish({ params, response, session }: HttpContext) {
     try {
       const artifact = await this.artifactService.publishArtifact(params.id)
-      session.flash('success', `Artifact ${artifact.fileName} has been published and is now visible to the API.`)
+      session.flash(
+        'success',
+        `Artifact ${artifact.fileName} has been published and is now visible to the API.`
+      )
       return response.redirect().back()
     } catch (error: any) {
       session.flash('info', error.message)

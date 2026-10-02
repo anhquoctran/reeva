@@ -1,56 +1,44 @@
 # Dockerfile
 
 FROM node:24-alpine AS base
+RUN corepack enable && corepack prepare pnpm@11.20.0 --activate
 
-# Enable Corepack and prepare pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-# Stage 1: Install all dependencies for build
+# Stage 1: Install all dependencies (development + production)
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 # Stage 2: Install production only dependencies
-# We use hoisted linker to ensure node_modules is self-contained and copyable
 FROM base AS production-deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm config set node-linker hoisted && \
-    pnpm install --prod --frozen-lockfile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
+RUN pnpm install --prod --frozen-lockfile
 
 # Stage 3: Build the application
 FROM base AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules /app/node_modules
 ADD . .
-# make SWC baseUrl absolute (fixes - base_dir('./') must be absolute) and skip Vite in constrained container builds
-RUN node ace build --ignore-ts-errors
-# Debug: verify build output
-RUN echo "=== BUILD OUTPUT ===" && \
-    ls -la build/app/services/storage/ && \
-    echo "=== BUILD PACKAGE.JSON IMPORTS ===" && \
-    node -e "console.log(JSON.stringify(require('./build/package.json').imports, null, 2))" && \
-    echo "=== COMPILED PROVIDER IMPORT ===" && \
-    head -1 build/providers/storage_provider.js
+# Build only needs schema-valid dummy configuration; production credentials are
+# supplied when the container runs and are never copied into the image.
+RUN NODE_ENV=production PORT=3333 HOST=0.0.0.0 LOG_LEVEL=info \
+    APP_KEY=build-only-key-012345678901234567890123456789 \
+    APP_URL=http://localhost:3333 SESSION_DRIVER=cookie DB_CONNECTION=sqlite \
+    MAIL_MAILER=smtp MAIL_FROM_NAME=Reeva MAIL_FROM_ADDRESS=build@example.invalid \
+    SMTP_HOST=localhost SMTP_PORT=1025 node ace build
 
 # Stage 4: Final production image
 FROM base AS production
 ENV NODE_ENV=production
 WORKDIR /app
-
-# Copy production dependencies
 COPY --from=production-deps /app/node_modules /app/node_modules
-# Copy built app
-COPY --from=build /app/build/ /app/
-
-# Debug: verify final container structure
-RUN echo "=== FINAL CONTAINER ===" && \
-    ls -la /app/app/services/storage/ && \
-    echo "=== PACKAGE.JSON ===" && \
-    node -e "console.log(JSON.stringify(require('./package.json').imports, null, 2))" && \
-    echo "=== TEST RESOLUTION ===" && \
-    node -e "try { require.resolve('#services/storage/storage_manager'); console.log('RESOLVED OK') } catch(e) { console.log('RESOLVE FAILED:', e.message) }"
+COPY --from=build /app/build /app/build
+COPY --from=build /app/package.json /app/package.json
+RUN mkdir -p /app/storage/uploads && chown -R node:node /app/storage
+USER node
 
 EXPOSE 3333
-CMD ["node", "bin/server.js"]
+CMD ["node", "build/bin/server.js"]
