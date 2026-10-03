@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import Database from 'better-sqlite3'
+import { createTestDatabase } from './postgres_test_helpers.mjs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const scratch = await mkdtemp(join(tmpdir(), 'reeva-s3-env-seed-'))
-const databasePath = join(scratch, 'reeva.sqlite3')
+const database = await createTestDatabase('s3_seed')
 const env = {
-  ...process.env,
+  ...database.env,
   NODE_ENV: 'development',
   HOST: '127.0.0.1',
   PORT: '8888',
@@ -16,8 +16,6 @@ const env = {
   APP_KEY: 'synthetic-s3-seed-check-key-0123456789012345678901',
   APP_URL: 'http://127.0.0.1:8888',
   SESSION_DRIVER: 'cookie',
-  DB_CONNECTION: 'sqlite',
-  SQLITE_DATABASE_PATH: databasePath,
   MAIL_MAILER: 'smtp',
   MAIL_FROM_NAME: 'S3 seed verification',
   MAIL_FROM_ADDRESS: 'verify@example.invalid',
@@ -49,42 +47,44 @@ function ace(...args) {
 }
 
 try {
-  ace('migration:run', '--force')
+  ace('migration:run', '--force', '--no-schema-generate')
+  // An imported database may have a default S3 provider without a local provider.
+  await database.client.query(
+    "INSERT INTO storage_providers (id,name,type,config,is_default,is_active) VALUES (gen_random_uuid(),'Imported S3','cloud',$1,true,true)",
+    [{ driver: 's3', configSource: 'environment' }]
+  )
   ace('db:seed')
 
-  const database = new Database(databasePath)
-  const readProviders = () =>
-    database
-      .prepare('SELECT id, config, is_default, is_active FROM storage_providers')
-      .all()
-      .map((provider) => ({ ...provider, config: JSON.parse(provider.config) }))
+  const readProviders = async () =>
+    (await database.client.query('SELECT id, config, is_default, is_active FROM storage_providers'))
+      .rows
 
-  const firstRun = readProviders()
+  const firstRun = await readProviders()
   const configuredProvider = firstRun.find(
     (provider) =>
-      provider.is_default === 1 &&
+      provider.is_default === true &&
       provider.config.driver === 's3' &&
       provider.config.configSource === 'environment'
   )
   assert.ok(configuredProvider, 'S3 env provider should become the default')
-  assert.equal(configuredProvider.is_active, 1)
+  assert.equal(configuredProvider.is_active, true)
   assert.deepEqual(configuredProvider.config, { driver: 's3', configSource: 'environment' })
-  assert.equal(firstRun.filter((provider) => provider.is_default === 1).length, 1)
+  assert.equal(firstRun.filter((provider) => provider.is_default === true).length, 1)
 
   ace('db:seed')
-  const secondRun = readProviders()
+  const secondRun = await readProviders()
   assert.equal(secondRun.length, firstRun.length, 'rerunning seeds must not add provider rows')
   assert.equal(
-    secondRun.find((provider) => provider.is_default === 1)?.id,
+    secondRun.find((provider) => provider.is_default === true)?.id,
     configuredProvider.id,
     'rerunning seeds should preserve and reselect the environment provider'
   )
   assert.equal(JSON.stringify(secondRun).includes(env.S3_SECRET_ACCESS_KEY), false)
-  database.close()
 
   process.stdout.write(
     'S3 environment provider seed passed: selected as the sole default, repeat-safe, and DB config contains no S3 secret\n'
   )
 } finally {
   await rm(scratch, { recursive: true, force: true })
+  await database.close()
 }

@@ -230,7 +230,7 @@ export default class ArtifactService {
       .orderBy('createdAt', 'desc')
 
     if (filters.fileName) {
-      query.where('fileName', 'like', `%${filters.fileName}%`)
+      query.where('fileName', 'ilike', `%${filters.fileName}%`)
     }
     if (filters.softwareId) {
       query.whereHas('version', (versionQuery) =>

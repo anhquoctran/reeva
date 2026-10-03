@@ -1,122 +1,38 @@
-import app from '@adonisjs/core/services/app'
 import { defineConfig } from '@adonisjs/lucid'
 import env from '#start/env'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { readFile } from 'node:fs/promises'
+import type { ClientConfig } from 'pg'
 
-const sqliteFilename = app.inTest
-  ? join(tmpdir(), `reeva-test-${process.pid}.sqlite3`)
-  : env.get('SQLITE_DATABASE_PATH') || app.tmpPath('db.sqlite3')
+const passwordFile = env.get('DB_PASSWORD_FILE')
+const configuredPassword = env.get('DB_PASSWORD')
+const passwordContents =
+  !configuredPassword && passwordFile ? await readFile(passwordFile, 'utf8') : undefined
+const password = configuredPassword || passwordContents?.trim()
+const caPath = env.get('DB_SSL_CA_PATH')
 
-const dbConfig = defineConfig({
-  /**
-   * Default connection used for all queries.
-   */
-  connection: app.inTest ? 'sqlite' : env.get('DB_CONNECTION'),
+const connection = {
+  host: env.get('DB_HOST') || '127.0.0.1',
+  port: env.get('DB_PORT') || 5432,
+  user: env.get('DB_USER') || 'reeva',
+  password,
+  database: env.get('DB_DATABASE') || 'reeva',
+  ssl: env.get('DB_SSL')
+    ? { rejectUnauthorized: true, ...(caPath ? { ca: await readFile(caPath, 'utf8') } : {}) }
+    : false,
+  application_name: 'reeva',
+  options: '-c timezone=UTC',
+} satisfies ClientConfig
 
-  /**
-   * Pretty-print SQL debug output in development logs.
-   */
+export default defineConfig({
+  connection: 'pg',
   prettyPrintDebugQueries: true,
-
   connections: {
-    /**
-     * SQLite connection (default).
-     */
-    sqlite: {
-      client: 'better-sqlite3',
-      connection: {
-        filename: sqliteFilename,
-      },
-      useNullAsDefault: true,
-      migrations: {
-        naturalSort: true,
-        paths: ['database/migrations'],
-      },
-      /**
-       * Emit SQL queries to the logger in development.
-       */
-      debug: app.inDev,
+    pg: {
+      client: 'pg',
+      connection,
+      pool: { min: 0, max: 10 },
+      migrations: { naturalSort: true, paths: ['database/migrations'] },
+      debug: false,
     },
-
-    /**
-     * PostgreSQL connection.
-     * Install package to switch: npm install pg
-     */
-    // pg: {
-    //   client: 'pg',
-    //   connection: {
-    //     host: env.get('DB_HOST'),
-    //     port: env.get('DB_PORT'),
-    //     user: env.get('DB_USER'),
-    //     password: env.get('DB_PASSWORD'),
-    //     database: env.get('DB_DATABASE'),
-    //   },
-    //   migrations: {
-    //     naturalSort: true,
-    //     paths: ['database/migrations'],
-    //   },
-    //   debug: app.inDev,
-    // },
-
-    /**
-     * MySQL / MariaDB connection.
-     * Install package to switch: npm install mysql2
-     */
-    mysql: {
-      client: 'mysql2',
-      connection: {
-        host: env.get('DB_HOST'),
-        port: env.get('DB_PORT'),
-        user: env.get('DB_USER'),
-        password: env.get('DB_PASSWORD'),
-        database: env.get('DB_DATABASE'),
-      },
-      migrations: {
-        naturalSort: true,
-        paths: ['database/migrations'],
-      },
-      debug: app.inDev,
-    },
-
-    /**
-     * Microsoft SQL Server connection.
-     * Install package to switch: npm install tedious
-     */
-    // mssql: {
-    //   client: 'mssql',
-    //   connection: {
-    //     server: env.get('DB_HOST'),
-    //     port: env.get('DB_PORT'),
-    //     user: env.get('DB_USER'),
-    //     password: env.get('DB_PASSWORD'),
-    //     database: env.get('DB_DATABASE'),
-    //   },
-    //   migrations: {
-    //     naturalSort: true,
-    //     paths: ['database/migrations'],
-    //   },
-    //   debug: app.inDev,
-    // },
-
-    /**
-     * libSQL (Turso) connection.
-     * Install package to switch: npm install @libsql/client
-     */
-    // libsql: {
-    //   client: 'libsql',
-    //   connection: {
-    //     url: env.get('LIBSQL_URL'),
-    //     authToken: env.get('LIBSQL_AUTH_TOKEN'),
-    //   },
-    //   useNullAsDefault: true,
-    //   migrations: {
-    //     naturalSort: true,
-    //     paths: ['database/migrations'],
-    //   },
-    //   debug: app.inDev,
-    // },
   },
 })
-
-export default dbConfig

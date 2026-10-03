@@ -35,6 +35,7 @@ export default class StorageProviderService {
 
   async activateProvider(id: string | number) {
     await db.transaction(async (trx) => {
+      await trx.rawQuery('SELECT pg_advisory_xact_lock(1919247734, 2)')
       await StorageProvider.query({ client: trx }).update({ isDefault: false })
       const provider = await StorageProvider.findOrFail(id, { client: trx })
       if (!provider.isActive) {

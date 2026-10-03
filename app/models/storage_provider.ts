@@ -23,7 +23,7 @@ export default class StorageProvider extends compose(StorageProviderSchema, Soft
   @column()
   declare isActive: boolean
 
-  @column()
+  @column({ consume: (value) => (value === null ? null : Number(value)) })
   declare quotaBytes: number | null
   @beforeCreate()
   static async generateUuid(storageProvider: StorageProvider) {

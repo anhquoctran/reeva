@@ -12,6 +12,14 @@
 
 process.env.NODE_ENV = 'test'
 
+if (
+  !process.env.REEVA_TEST_DATABASE ||
+  process.env.DB_DATABASE !== process.env.REEVA_TEST_DATABASE ||
+  !/^reeva_test_[a-z0-9_]+$/.test(process.env.DB_DATABASE)
+) {
+  throw new Error('Run pnpm test: tests require a generated disposable PostgreSQL database.')
+}
+
 import 'reflect-metadata'
 import { Ignitor, prettyPrintError } from '@adonisjs/core'
 import { configure, processCLIArgs, run } from '@japa/runner'

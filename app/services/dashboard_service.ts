@@ -75,7 +75,7 @@ export default class DashboardService {
   }
 
   async getDashboardData() {
-    const now = DateTime.now()
+    const now = DateTime.utc()
     const todayStart = now.startOf('day')
     const weekStart = now.minus({ days: 7 }).startOf('day')
     const monthStart = now.minus({ days: 30 }).startOf('day')
@@ -116,15 +116,13 @@ export default class DashboardService {
     ])
 
     // Chart data
-    const sqlite = db.connection().dialect.name.includes('sqlite')
-    const hourBucket = sqlite
-      ? "strftime('%Y-%m-%d %H:00:00', created_at)"
-      : "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')"
-    const dateBucket = sqlite ? 'date(created_at)' : 'DATE(created_at)'
+    const hourBucket = "to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00:00')"
+    const dateBucket = "to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD')"
 
     const [last24h, last7d, last30d] = await Promise.all([
       db
         .from('download_histories')
+        .whereNull('deleted_at')
         .select(db.raw(`${hourBucket} as hour`))
         .count('* as total')
         .where('created_at', '>=', now.minus({ hours: 24 }).toSQL()!)
@@ -133,6 +131,7 @@ export default class DashboardService {
 
       db
         .from('download_histories')
+        .whereNull('deleted_at')
         .select(db.raw(`${dateBucket} as date`))
         .count('* as total')
         .where('created_at', '>=', weekStart.toSQL()!)
@@ -141,6 +140,7 @@ export default class DashboardService {
 
       db
         .from('download_histories')
+        .whereNull('deleted_at')
         .select(db.raw(`${dateBucket} as date`))
         .count('* as total')
         .where('created_at', '>=', monthStart.toSQL()!)
@@ -149,7 +149,10 @@ export default class DashboardService {
     ])
 
     const formatHour = (value: string | Date) => {
-      const dateTime = value instanceof Date ? DateTime.fromJSDate(value) : DateTime.fromSQL(value)
+      const dateTime =
+        value instanceof Date
+          ? DateTime.fromJSDate(value, { zone: 'utc' })
+          : DateTime.fromSQL(value, { zone: 'utc' })
       return dateTime.isValid ? dateTime.toFormat('HH:00') : String(value)
     }
     const formatDate = (value: string | Date) => {
@@ -179,14 +182,14 @@ export default class DashboardService {
 
     return {
       stats: {
-        versions: totalVersionsResult?.$extras.total || 0,
-        software: totalSoftwareResult?.$extras.total || 0,
-        artifacts: totalArtifactsResult?.$extras.total || 0,
-        storageProviders: activeSPResult?.$extras.total || 0,
+        versions: Number(totalVersionsResult?.$extras.total || 0),
+        software: Number(totalSoftwareResult?.$extras.total || 0),
+        artifacts: Number(totalArtifactsResult?.$extras.total || 0),
+        storageProviders: Number(activeSPResult?.$extras.total || 0),
         downloads: Number(downloadsTotalResult?.total || 0),
-        today: statsToday?.$extras.total || 0,
-        week: statsWeek?.$extras.total || 0,
-        month: statsMonth?.$extras.total || 0,
+        today: Number(statsToday?.$extras.total || 0),
+        week: Number(statsWeek?.$extras.total || 0),
+        month: Number(statsMonth?.$extras.total || 0),
       },
       allChartData,
       health: {

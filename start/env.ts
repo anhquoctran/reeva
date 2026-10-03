@@ -24,15 +24,21 @@ const env = await Env.create(new URL('../', import.meta.url), {
   APP_GIT_SHA: Env.schema.string.optional(),
 
   // Session
-  SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
+  SESSION_DRIVER: Env.schema.enum(['cookie', 'database'] as const),
 
   // Database
-  DB_CONNECTION: Env.schema.enum(['sqlite', 'mysql', 'pg', 'mssql', 'libsql'] as const),
-  SQLITE_DATABASE_PATH: Env.schema.string.optional(),
+  DB_CONNECTION: Env.schema.enum.optional(['pg'] as const),
   DB_HOST: Env.schema.string.optional({ format: 'host' }),
   DB_PORT: Env.schema.number.optional(),
   DB_USER: Env.schema.string.optional(),
   DB_PASSWORD: Env.schema.string.optional(),
+  DB_PASSWORD_FILE: Env.schema.string.optional(),
+  DB_SSL: (key, value) => {
+    if (!value) return false
+    if (!['true', 'false'].includes(value)) throw new Error(`${key} must be true or false`)
+    return value === 'true'
+  },
+  DB_SSL_CA_PATH: Env.schema.string.optional(),
   DB_DATABASE: Env.schema.string.optional(),
 
   // Storage stays CMS/DB managed unless an environment-backed S3 provider is selected.

@@ -57,7 +57,7 @@ export default class extends BaseSchema {
       .select('major', 'minor', 'patch')
       .count('* as total')
       .groupBy('major', 'minor', 'patch')
-      .having('total', '>', 1)
+      .havingRaw('COUNT(*) > 1')
       .first()
 
     if (duplicates) {

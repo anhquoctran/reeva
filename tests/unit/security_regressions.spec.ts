@@ -2,7 +2,7 @@ import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
-import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { createHash, randomBytes, randomUUID, verify } from 'node:crypto'
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -15,6 +15,9 @@ import Platform from '#models/platform'
 import StorageProvider from '#models/storage_provider'
 import Software from '#models/software'
 import User from '#models/user'
+import License from '#models/license'
+import LicenseActivation from '#models/license_activation'
+import Setting from '#models/setting'
 import Version from '#models/version'
 import ArtifactRepository from '#repositories/artifact_repository'
 import ArchitectureRepository from '#repositories/architecture_repository'
@@ -23,14 +26,17 @@ import PlatformRepository from '#repositories/platform_repository'
 import SoftwareRepository from '#repositories/software_repository'
 import StorageProviderRepository from '#repositories/storage_provider_repository'
 import UserRepository from '#repositories/user_repository'
+import LicenseRepository from '#repositories/license_repository'
 import VersionRepository from '#repositories/version_repository'
 import ArtifactService, { artifactDetailsDto } from '#services/artifact_service'
 import DashboardService from '#services/dashboard_service'
 import AuthService from '#services/auth_service'
+import LicenseService from '#services/license_service'
 import { attachmentDisposition } from '#services/download_headers'
 import UpdaterService, { ArtifactStorageError } from '#services/updater_service'
 import VersionService from '#services/version_service'
 import SoftwareService from '#services/software_service'
+import StorageProviderService from '#services/storage_provider_service'
 import LocalProvider from '#services/storage/providers/local_provider'
 import UpdaterController from '#controllers/api/updater_controller'
 import RootMiddleware from '#middleware/root_middleware'
@@ -217,6 +223,59 @@ test.group('security and release regressions', (group) => {
     assert.equal(releases.results[0]?.id, published.id)
   })
 
+  test('PostgreSQL release pagination counts eligible rows separately from selected artifact columns', async ({
+    assert,
+  }) => {
+    const fixture = await makeFixture()
+    const original = await makeArtifact(fixture)
+    const newerVersion = await Version.create({
+      softwareId: fixture.version.softwareId,
+      major: 1,
+      minor: fixture.version.minor + 10000,
+      patch: 0,
+      isActive: true,
+    })
+    const newer = await makeArtifact(fixture, { versionId: newerVersion.id })
+    const excludedVersion = await Version.create({
+      softwareId: fixture.version.softwareId,
+      major: 1,
+      minor: fixture.version.minor + 10001,
+      patch: 0,
+      isActive: true,
+    })
+    await makeArtifact(fixture, { versionId: excludedVersion.id, isArchived: true })
+    const service = makeUpdaterService()
+    const first = await service.getReleases(
+      fixture.platform.name,
+      fixture.architecture.name,
+      'stable',
+      1,
+      1
+    )
+    const second = await service.getReleases(
+      fixture.platform.name,
+      fixture.architecture.name,
+      'stable',
+      1,
+      2
+    )
+    const empty = await service.getReleases(
+      fixture.platform.name,
+      fixture.architecture.name,
+      'stable',
+      1,
+      3
+    )
+    assert.equal(first.pagination.total, 2)
+    assert.equal(first.pagination.totalPages, 2)
+    assert.equal(first.results[0].id, newer.id)
+    assert.equal(second.results[0].id, original.id)
+    assert.equal(empty.pagination.total, 2)
+    assert.lengthOf(empty.results, 0)
+    assert.isNumber(first.results[0].sizeBytes)
+    assert.isNumber(fixture.storageProvider.quotaBytes)
+  })
+
   test('semantic versions, OTA selection, and legacy routing are isolated per software', async ({
     assert,
   }) => {
@@ -293,6 +352,52 @@ test.group('security and release regressions', (group) => {
         legacySoftware.slug
       )
     )
+  })
+
+  test('PostgreSQL serializes concurrent default selections and enforces one active default', async ({
+    assert,
+  }) => {
+    const original = await defaultSoftware()
+    const service = new SoftwareService(new SoftwareRepository())
+    const first = await service.create({ name: 'Concurrent first', slug: `first-${randomUUID()}` })
+    const second = await service.create({
+      name: 'Concurrent second',
+      slug: `second-${randomUUID()}`,
+    })
+    await Promise.all([service.setDefault(first.id), service.setDefault(second.id)])
+    const defaults = await db.from('software').where('is_default', true)
+    assert.lengthOf(defaults, 1)
+    await assert.rejects(() =>
+      db.from('software').where('id', defaults[0].id).update({ is_active: false })
+    )
+    const alternate = defaults[0].id === first.id ? second.id : first.id
+    await assert.rejects(() =>
+      db.from('software').where('id', alternate).update({ is_default: true })
+    )
+    await service.setDefault(original.id)
+  })
+
+  test('PostgreSQL storage defaults serialize selection and exclude deleted rows from uniqueness', async ({
+    assert,
+  }) => {
+    const firstFixture = await makeFixture()
+    const secondFixture = await makeFixture()
+    const first = firstFixture.storageProvider
+    const second = secondFixture.storageProvider
+    const service = new StorageProviderService(new StorageProviderRepository())
+    await Promise.all([service.activateProvider(first.id), service.activateProvider(second.id)])
+    const defaults = await StorageProvider.query().where('isDefault', true)
+    assert.lengthOf(defaults, 1)
+    const selected = defaults[0]
+    const alternate = selected.id === first.id ? second : first
+    await selected.delete()
+    await db.from('storage_providers').where('id', alternate.id).update({ is_default: true })
+    const currentDefault = await service.getDefaultProvider()
+    assert.equal(currentDefault?.id, alternate.id)
+    const historical = await db.from('storage_providers').where('id', selected.id).first()
+    assert.isNotNull(historical.deleted_at)
+    assert.isTrue(historical.is_default)
+    await service.activateProvider(alternate.id)
   })
 
   test('artifact filenames use the owning software name', async ({ assert }) => {
@@ -590,7 +695,7 @@ test.group('security and release regressions', (group) => {
     assert.equal(updated.downloadCount, 1)
   })
 
-  test('dashboard activity buckets run on SQLite', async ({ assert }) => {
+  test('dashboard UTC activity buckets run on PostgreSQL', async ({ assert }) => {
     const fixture = await makeFixture()
     const artifact = await makeArtifact(fixture)
     await db.table('download_histories').insert({
@@ -612,6 +717,84 @@ test.group('security and release regressions', (group) => {
     assert.isAtLeast(dashboard.stats.today, 1)
     assert.isAtLeast(dashboard.allChartData.today.length, 1)
     assert.equal(dashboard.health.db, 'healthy')
+    await db.table('download_histories').insert({
+      artifact_id: artifact.id,
+      ip_address: '127.0.0.1',
+      user_agent: 'deleted-audit-test',
+      created_at: DateTime.utc().toJSDate(),
+      deleted_at: DateTime.utc().toJSDate(),
+    })
+    const afterDeletion = await service.getDashboardData()
+    assert.equal(afterDeletion.stats.today, dashboard.stats.today)
+    assert.deepEqual(afterDeletion.allChartData.today, dashboard.allChartData.today)
+  })
+
+  test('PostgreSQL license activation transactions enforce limits, scope removals and share signing keys', async ({
+    assert,
+  }) => {
+    const service = new LicenseService(new LicenseRepository())
+    const first = await service.createLicense({ productName: 'ORBIT', maxActivations: 1 })
+    const second = await service.createLicense({ productName: 'Orbit', maxActivations: 3 })
+    const attempts = await Promise.allSettled([
+      service.issueActivationToken(first.id, 'machine-a'),
+      service.issueActivationToken(first.id, 'machine-b'),
+      service.issueActivationToken(second.id, 'same-machine'),
+      service.issueActivationToken(second.id, 'same-machine'),
+    ])
+    assert.equal(attempts.filter((attempt) => attempt.status === 'fulfilled').length, 2)
+    const firstRow = await License.findOrFail(first.id)
+    const secondRow = await License.findOrFail(second.id)
+    assert.equal(firstRow.activationCount, 1)
+    assert.equal(secondRow.activationCount, 1)
+    const publicKey = await Setting.query().where('key', 'license_public_key').firstOrFail()
+    for (const attempt of attempts) {
+      if (attempt.status !== 'fulfilled') continue
+      const token = JSON.parse(Buffer.from(attempt.value, 'base64').toString())
+      assert.isTrue(
+        verify(
+          undefined,
+          Buffer.from(JSON.stringify(token.p)),
+          publicKey.value!,
+          Buffer.from(token.s, 'base64')
+        )
+      )
+    }
+    const activation = await LicenseActivation.query().where('licenseId', first.id).firstOrFail()
+    await assert.rejects(() => service.removeActivation(second.id, activation.id))
+    assert.isNotNull(await LicenseActivation.find(activation.id))
+    await db.from('licenses').where('id', first.id).update({ activation_count: 999 })
+    await service.removeActivation(first.id, activation.id)
+    const removed = await License.findOrFail(first.id)
+    assert.equal(removed.activationCount, 0)
+    await assert.rejects(() => service.removeActivation(first.id, activation.id))
+    const expired = await service.createLicense({
+      productName: 'Expired',
+      expiresAt: DateTime.utc().minus({ days: 1 }).toISO(),
+    })
+    await assert.rejects(() => service.issueActivationToken(expired.id, 'machine'))
+    await assert.rejects(() => service.issueActivationToken(second.id, ''))
+    const filtered = await service.getFilteredLicenses(1, 20, { productName: 'orbit' })
+    assert.equal(filtered.total, 2)
+    // Fail after the activation insert to exercise the real DB rollback boundary.
+    await db.rawQuery(`CREATE FUNCTION reeva_test_license_failure() RETURNS trigger AS $$
+        BEGIN RAISE EXCEPTION 'synthetic license persistence failure'; END;
+        $$ LANGUAGE plpgsql`)
+    await db.rawQuery(
+      'CREATE TRIGGER reeva_test_license_failure BEFORE UPDATE ON licenses FOR EACH ROW EXECUTE FUNCTION reeva_test_license_failure()'
+    )
+    try {
+      await assert.rejects(() => service.issueActivationToken(second.id, 'failed-machine'))
+    } finally {
+      await db.rawQuery('DROP TRIGGER reeva_test_license_failure ON licenses')
+      await db.rawQuery('DROP FUNCTION reeva_test_license_failure()')
+    }
+    const failedActivation = await LicenseActivation.query()
+      .where('licenseId', second.id)
+      .where('machineId', 'failed-machine')
+      .first()
+    assert.isNull(failedActivation)
+    const afterFailure = await License.findOrFail(second.id)
+    assert.equal(afterFailure.activationCount, 1)
   })
 
   test('password reset tokens are hashed, expire, are single-use, and revoke sessions', async ({

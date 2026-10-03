@@ -6,7 +6,9 @@ import { join } from 'node:path'
 import { once } from 'node:events'
 import { createServer } from 'node:net'
 import { randomBytes } from 'node:crypto'
+import { createTestDatabase } from './postgres_test_helpers.mjs'
 
+const database = await createTestDatabase('production')
 const buildRoot = join(process.cwd(), 'build')
 const temporaryRoot = await mkdtemp(join(tmpdir(), 'reeva-production-smoke-'))
 const isolatedBuildRoot = join(temporaryRoot, 'build')
@@ -14,29 +16,17 @@ const adminEmail = 'production-smoke@example.invalid'
 const adminPassword = 'production-smoke-password-0123456789'
 const portServer = createServer()
 
-await cp(buildRoot, isolatedBuildRoot, {
-  recursive: true,
-  filter: (source) => !source.endsWith('/.env'),
-})
-await symlink(join(process.cwd(), 'node_modules'), join(isolatedBuildRoot, 'node_modules'), 'dir')
-
-await new Promise((resolve, reject) => {
-  portServer.once('error', reject)
-  portServer.listen(8888, '127.0.0.1', resolve)
-})
-await new Promise((resolve) => portServer.close(resolve))
-
 const origin = 'http://127.0.0.1:8888'
 const env = {
-  ...process.env,
+  ...database.env,
   NODE_ENV: 'production',
   HOST: '127.0.0.1',
   LOG_LEVEL: 'error',
   APP_KEY: randomBytes(32).toString('hex'),
   APP_URL: origin,
-  SESSION_DRIVER: 'cookie',
-  DB_CONNECTION: 'sqlite',
-  SQLITE_DATABASE_PATH: join(temporaryRoot, 'smoke.sqlite3'),
+  SESSION_DRIVER: process.env.REEVA_SMOKE_SESSION_DRIVER || 'cookie',
+  // An explicit password takes precedence over an unused password-file path.
+  DB_PASSWORD_FILE: '/reeva-synthetic-unused-password-file',
   MAIL_MAILER: 'smtp',
   MAIL_FROM_NAME: 'Reeva Runtime Smoke',
   MAIL_FROM_ADDRESS: adminEmail,
@@ -70,6 +60,18 @@ function sessionCookies(response) {
 let server
 let serverOutput = ''
 try {
+  await cp(buildRoot, isolatedBuildRoot, {
+    recursive: true,
+    filter: (source) => !source.endsWith('/.env'),
+  })
+  await symlink(join(process.cwd(), 'node_modules'), join(isolatedBuildRoot, 'node_modules'), 'dir')
+
+  await new Promise((resolve, reject) => {
+    portServer.once('error', reject)
+    portServer.listen(8888, '127.0.0.1', resolve)
+  })
+  await new Promise((resolve) => portServer.close(resolve))
+
   runAce('migration:run', '--force')
   runAce('db:seed')
 
@@ -137,6 +139,9 @@ try {
     ['/cms/software', 'Manage the products whose OTA releases are hosted by Reeva'],
     ['/cms/versions', 'Deploy releases for the selected software.'],
     ['/cms/artifacts', 'Reeva'],
+    ['/cms', 'Reeva'],
+    ['/cms/storage', 'Storage'],
+    ['/cms/licenses', 'License'],
   ]) {
     const response = await fetch(`${origin}${path}`, {
       redirect: 'manual',
@@ -168,7 +173,7 @@ try {
   assert.equal(invalidLegacyCheck.status, 400)
 
   process.stdout.write(
-    'production smoke passed: no .env and no PORT, default 8888, fresh SQLite migration + seed, login/CSRF, root software/version/artifact pages, scoped and legacy API validation\n'
+    `production smoke passed: no .env and no PORT, default 8888, PostgreSQL migration + seed, ${env.SESSION_DRIVER} sessions, login/CSRF, CMS software/version/artifact/dashboard/storage/license pages, scoped and legacy API validation\n`
   )
 } finally {
   if (server && server.exitCode === null) {
@@ -177,4 +182,5 @@ try {
     if (server.exitCode === null) server.kill('SIGKILL')
   }
   await rm(temporaryRoot, { recursive: true, force: true })
+  await database.close()
 }

@@ -131,7 +131,6 @@ export default class UpdaterService {
       throw new Error('Platform or architecture not supported.')
     }
 
-    const offset = (page - 1) * limit
     const query = this.artifactRepository
       .publicQuery(software.id)
       .join('versions as v', 'v.id', 'artifacts.version_id')
@@ -146,9 +145,11 @@ export default class UpdaterService {
       .orderBy('v.patch', 'desc')
       .orderBy('artifacts.id', 'asc')
 
-    const countQuery = await query.clone().count('* as total').first()
-    const totalRecords = Number(countQuery?.$extras.total || 0)
-    const results = await query.offset(offset).limit(limit)
+    // Lucid strips selected columns and ordering from the aggregate clone.
+    // Keeping artifacts.* beside COUNT(*) is invalid on PostgreSQL.
+    const paginated = await query.paginate(page, limit)
+    const totalRecords = Number(paginated.total)
+    const results = paginated.all()
 
     return {
       results,

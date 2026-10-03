@@ -1,6 +1,7 @@
+autoInstallPeers: false
+
 allowBuilds:
   '@swc/core': true
-  better-sqlite3: true
   esbuild: true
 
 overrides:
@@ -15,7 +16,6 @@ overrides:
   fast-xml-builder: ^1.1.7
   fast-xml-parser: ^5.7.0
   lodash-es: ^4.18.1
-  mysql2: ^3.23.1
   nanoid@3: ^3.3.18
   nodemailer: ^10.0.6
   postcss: ^8.5.23

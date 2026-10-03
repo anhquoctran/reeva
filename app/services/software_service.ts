@@ -71,6 +71,7 @@ export default class SoftwareService {
 
   async setDefault(id: string) {
     return db.transaction(async (trx) => {
+      await trx.rawQuery('SELECT pg_advisory_xact_lock(1919247734, 1)')
       const activeRows = await trx.from('software').where('is_active', true).forUpdate()
       const target = activeRows.find((row) => row.id === id)
       if (!target) throw new Error('Only active software can be the default.')

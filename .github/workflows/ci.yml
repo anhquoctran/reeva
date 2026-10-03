@@ -11,49 +11,39 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     services:
-      mysql:
-        image: mysql:8.4
+      postgres:
+        image: postgres:17-alpine
         env:
-          MYSQL_ROOT_PASSWORD: reeva-ci-only
+          POSTGRES_PASSWORD: reeva-ci-only
         ports:
-          - 3306:3306
+          - 5432:5432
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -p$MYSQL_ROOT_PASSWORD"
-          --health-interval=10s
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
           --health-timeout=5s
-          --health-retries=10
+          --health-retries=12
     env:
-      NODE_ENV: test
-      DB_CONNECTION: sqlite
-      SQLITE_DATABASE_PATH: ${{ runner.temp }}/reeva-ci-${{ github.run_id }}.sqlite
-      APP_KEY: test-only-key-01234567890123456789012345678901
-      APP_URL: http://localhost:8888
-      PORT: 8888
-      HOST: 127.0.0.1
-      LOG_LEVEL: error
-      SESSION_DRIVER: cookie
-      MAIL_MAILER: smtp
-      MAIL_FROM_NAME: Reeva CI
-      MAIL_FROM_ADDRESS: ci@example.invalid
-      SMTP_HOST: localhost
-      SMTP_PORT: 1025
-      REEVA_TEST_MYSQL_HOST: 127.0.0.1
-      REEVA_TEST_MYSQL_PORT: 3306
-      REEVA_TEST_MYSQL_USER: root
-      REEVA_TEST_MYSQL_PASSWORD: reeva-ci-only
+      REEVA_TEST_PG_HOST: 127.0.0.1
+      REEVA_TEST_PG_PORT: 5432
+      REEVA_TEST_PG_USER: postgres
+      REEVA_TEST_PG_PASSWORD: reeva-ci-only
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: pnpm
-      - run: corepack enable
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit
+      - run: pnpm verify:dependencies
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm verify:migration-upgrade
-      - run: pnpm verify:migration:mysql
+      - run: pnpm verify:legacy-import
+      - run: pnpm verify:s3-env
       - run: pnpm build
       - run: pnpm verify:production-smoke
+      - run: REEVA_SMOKE_SESSION_DRIVER=database pnpm verify:production-smoke
+      - run: pnpm verify:docker-compose

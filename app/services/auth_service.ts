@@ -108,21 +108,21 @@ export default class AuthService {
     const windowEnd = now.plus({ minutes: 1 })
 
     const incrementCounter = async (key: string) => {
-      await db
+      const [row] = await db
         .table('auth_rate_limits')
         .insert({ key, attempts: 1, window_ends_at: windowEnd.toJSDate() })
         .onConflict('key')
         .merge({
-          attempts: db.raw('CASE WHEN window_ends_at <= ? THEN 1 ELSE attempts + 1 END', [
-            now.toJSDate(),
-          ]),
-          window_ends_at: db.raw('CASE WHEN window_ends_at <= ? THEN ? ELSE window_ends_at END', [
-            now.toJSDate(),
-            windowEnd.toJSDate(),
-          ]),
+          attempts: db.raw(
+            'CASE WHEN auth_rate_limits.window_ends_at <= ? THEN 1 ELSE auth_rate_limits.attempts + 1 END',
+            [now.toJSDate()]
+          ),
+          window_ends_at: db.raw(
+            'CASE WHEN auth_rate_limits.window_ends_at <= ? THEN ? ELSE auth_rate_limits.window_ends_at END',
+            [now.toJSDate(), windowEnd.toJSDate()]
+          ),
         })
-
-      const row = await db.from('auth_rate_limits').where('key', key).first()
+        .returning('attempts')
       return Number(row?.attempts || 0)
     }
 

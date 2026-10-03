@@ -4,6 +4,9 @@ import { DateTime } from 'luxon'
 import crypto from 'node:crypto'
 import LicenseActivation from '#models/license_activation'
 import Setting from '#models/setting'
+import License from '#models/license'
+import db from '@adonisjs/lucid/services/db'
+import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 
 @inject()
 export default class LicenseService {
@@ -13,21 +16,21 @@ export default class LicenseService {
     const query = this.licenseRepository.query().orderBy('createdAt', 'desc')
 
     if (filters.licenseKey) {
-      query.where('licenseKey', 'like', `%${filters.licenseKey}%`)
+      query.where('licenseKey', 'ilike', `%${filters.licenseKey}%`)
     }
 
     if (filters.customer) {
       query.where((q) => {
-        q.where('customerName', 'like', `%${filters.customer}%`).orWhere(
+        q.where('customerName', 'ilike', `%${filters.customer}%`).orWhere(
           'customerEmail',
-          'like',
+          'ilike',
           `%${filters.customer}%`
         )
       })
     }
 
     if (filters.productName) {
-      query.where('productName', 'like', `%${filters.productName}%`)
+      query.where('productName', 'ilike', `%${filters.productName}%`)
     }
 
     if (filters.status) {
@@ -55,40 +58,48 @@ export default class LicenseService {
   }
 
   async updateLicense(id: string | number, data: any) {
-    const license = await this.licenseRepository.findById(id)
-    const maxActivations = data.maxActivations
-      ? Number.parseInt(data.maxActivations)
-      : license.maxActivations
+    return db.transaction(async (trx) => {
+      const license = await License.query({ client: trx }).where('id', id).forUpdate().firstOrFail()
+      const maxActivations = data.maxActivations
+        ? Number.parseInt(data.maxActivations)
+        : license.maxActivations
 
-    license.merge({
-      licenseKey: data.licenseKey,
-      productName: data.productName,
-      customerName: data.customerName,
-      customerEmail: data.customerEmail,
-      status: data.status,
-      maxActivations: Number.isNaN(maxActivations) ? license.maxActivations : maxActivations,
-      expiresAt: data.expiresAt ? DateTime.fromISO(data.expiresAt) : null,
-      revokedAt:
-        data.status === 'revoked' && !license.revokedAt ? DateTime.now() : license.revokedAt,
+      license.merge({
+        licenseKey: data.licenseKey,
+        productName: data.productName,
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        status: data.status,
+        maxActivations: Number.isNaN(maxActivations) ? license.maxActivations : maxActivations,
+        expiresAt: data.expiresAt ? DateTime.fromISO(data.expiresAt) : null,
+        revokedAt:
+          data.status === 'revoked' && !license.revokedAt ? DateTime.now() : license.revokedAt,
+      })
+
+      if (data.status !== 'revoked') {
+        license.revokedAt = null
+      }
+
+      await license.save()
+      return license
     })
-
-    if (data.status !== 'revoked') {
-      license.revokedAt = null
-    }
-
-    return await this.licenseRepository.update(license)
   }
 
   async toggleLicense(id: string | number) {
-    const license = await this.licenseRepository.findById(id)
-    license.status = license.status === 'active' ? 'inactive' : 'active'
-    return await this.licenseRepository.update(license)
+    return db.transaction(async (trx) => {
+      const license = await License.query({ client: trx }).where('id', id).forUpdate().firstOrFail()
+      license.status = license.status === 'active' ? 'inactive' : 'active'
+      await license.save()
+      return license
+    })
   }
 
   async deleteLicense(id: string | number) {
-    const license = await this.licenseRepository.findById(id)
-    await this.licenseRepository.delete(license)
-    return license
+    return db.transaction(async (trx) => {
+      const license = await License.query({ client: trx }).where('id', id).forUpdate().firstOrFail()
+      await license.delete()
+      return license
+    })
   }
 
   /**
@@ -102,78 +113,89 @@ export default class LicenseService {
   }
 
   async issueActivationToken(licenseId: string, machineId: string) {
-    const license = await this.licenseRepository.findById(licenseId)
-
-    if (license.status !== 'active') throw new Error('License is not active')
-    if (license.activationCount >= license.maxActivations)
-      throw new Error('Activation limit reached')
-
-    const existing = await LicenseActivation.query()
-      .where('licenseId', license.id)
-      .where('machineId', machineId)
-      .first()
-
-    if (existing) throw new Error('This machine is already activated for this license')
-
-    // Generate Token
-    const payload = {
-      lid: license.id,
-      key: license.licenseKey,
-      hid: machineId,
-      prod: license.productName,
-      exp: license.expiresAt ? license.expiresAt.toMillis() : null,
-      iat: Date.now(),
+    if (typeof machineId !== 'string' || !machineId.trim() || machineId.length > 255) {
+      throw new Error('Machine ID is required and must be 255 characters or fewer')
     }
-
-    const privateKey = await this.getPrivateKey()
-    const signature = crypto.sign(undefined, Buffer.from(JSON.stringify(payload)), privateKey)
-
-    const token = Buffer.from(
-      JSON.stringify({
-        p: payload,
-        s: signature.toString('base64'),
-      })
-    ).toString('base64')
-
-    // Create activation record
-    await LicenseActivation.create({
-      licenseId: license.id,
-      machineId: machineId,
+    machineId = machineId.trim()
+    return db.transaction(async (trx) => {
+      const license = await License.query({ client: trx })
+        .where('id', licenseId)
+        .forUpdate()
+        .firstOrFail()
+      if (license.status !== 'active') throw new Error('License is not active')
+      if (license.expiresAt && license.expiresAt <= DateTime.utc())
+        throw new Error('License has expired')
+      const activations = await LicenseActivation.query({ client: trx }).where(
+        'licenseId',
+        license.id
+      )
+      if (activations.some((activation) => activation.machineId === machineId)) {
+        throw new Error('This machine is already activated for this license')
+      }
+      if (activations.length >= license.maxActivations) throw new Error('Activation limit reached')
+      const payload = {
+        lid: license.id,
+        key: license.licenseKey,
+        hid: machineId,
+        prod: license.productName,
+        exp: license.expiresAt ? license.expiresAt.toMillis() : null,
+        iat: Date.now(),
+      }
+      const privateKey = await this.getPrivateKey(trx)
+      const signature = crypto.sign(undefined, Buffer.from(JSON.stringify(payload)), privateKey)
+      const token = Buffer.from(
+        JSON.stringify({ p: payload, s: signature.toString('base64') })
+      ).toString('base64')
+      await LicenseActivation.create({ licenseId: license.id, machineId }, { client: trx })
+      license.activationCount = activations.length + 1
+      await license.save()
+      return token
     })
-
-    license.activationCount++
-    await license.save()
-
-    return token
   }
 
   async removeActivation(licenseId: string, activationId: string) {
-    const activation = await LicenseActivation.findOrFail(activationId)
-    const license = await this.licenseRepository.findById(licenseId)
-
-    await activation.delete()
-
-    license.activationCount = Math.max(0, license.activationCount - 1)
-    await license.save()
+    await db.transaction(async (trx) => {
+      const license = await License.query({ client: trx })
+        .where('id', licenseId)
+        .forUpdate()
+        .firstOrFail()
+      const activation = await LicenseActivation.query({ client: trx })
+        .where('id', activationId)
+        .where('licenseId', license.id)
+        .firstOrFail()
+      await activation.delete()
+      const count = await LicenseActivation.query({ client: trx })
+        .where('licenseId', license.id)
+        .count('* as total')
+        .first()
+      license.activationCount = Number(count?.$extras.total || 0)
+      await license.save()
+    })
   }
 
-  private async getPrivateKey() {
-    let keySetting = await Setting.query().where('key', 'license_private_key').first()
-
+  private async getPrivateKey(trx: TransactionClientContract) {
+    // Serialize first-time key creation across every app instance and license.
+    await trx.rawQuery('SELECT pg_advisory_xact_lock(1919247734, 3)')
+    let keySetting = await Setting.query({ client: trx })
+      .where('key', 'license_private_key')
+      .first()
     if (!keySetting) {
       const { privateKey } = crypto.generateKeyPairSync('ed25519')
-      const privateKeyBase64 = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
-      keySetting = await Setting.create({
-        key: 'license_private_key',
-        value: privateKeyBase64,
-      })
-
-      // Also save public key for convenience
-      const publicKey = crypto.createPublicKey(privateKey)
-      const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).toString()
-      await Setting.create({ key: 'license_public_key', value: publicKeyPem })
+      const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+      keySetting = await Setting.create(
+        { key: 'license_private_key', value: privateKeyPem },
+        { client: trx }
+      )
+      const publicKeyPem = crypto
+        .createPublicKey(privateKey)
+        .export({ type: 'spki', format: 'pem' })
+        .toString()
+      await Setting.updateOrCreate(
+        { key: 'license_public_key' },
+        { value: publicKeyPem },
+        { client: trx }
+      )
     }
-
     return crypto.createPrivateKey(keySetting.value!)
   }
 }

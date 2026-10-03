@@ -1,5 +1,11 @@
 services:
   app:
+    image: ${COMPOSE_PROJECT_NAME:-reeva}-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      database-init:
+        condition: service_completed_successfully
     build:
       context: .
       target: production
@@ -7,16 +13,17 @@ services:
     ports:
       - '${PORT:-8888}:${PORT:-8888}'
     environment:
-      NODE_ENV: ${NODE_ENV:-production}
+      NODE_ENV: production
       PORT: ${PORT:-8888}
       HOST: 0.0.0.0
-      DB_CONNECTION: ${DB_CONNECTION:-sqlite}
-      DB_HOST: ${MYSQLHOST:-${DB_HOST:-}}
-      DB_PORT: ${MYSQLPORT:-${DB_PORT:-3306}}
-      DB_USER: ${MYSQLUSER:-${DB_USER:-root}}
-      DB_PASSWORD: ${MYSQLPASSWORD:-${DB_PASSWORD:-}}
-      DB_DATABASE: ${MYSQLDATABASE:-${DB_DATABASE:-reeva}}
-      SQLITE_DATABASE_PATH: ${SQLITE_DATABASE_PATH:-/app/storage/reeva.sqlite3}
+      DB_CONNECTION: pg
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-reeva}
+      DB_DATABASE: ${POSTGRES_DB:-reeva}
+      DB_PASSWORD_FILE: /app/secrets/db_password
+      DB_STARTUP_TIMEOUT_SECONDS: ${DB_STARTUP_TIMEOUT_SECONDS:-30}
+      DB_SSL: 'false'
       STORAGE_DRIVER: ${STORAGE_DRIVER:-database}
       S3_ENDPOINT: ${S3_ENDPOINT:-}
       S3_REGION: ${S3_REGION:-us-east-1}
@@ -48,6 +55,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     volumes:
       - reeva_storage:/app/storage
+      - reeva_database_credentials:/app/secrets:ro
     restart: unless-stopped
     healthcheck:
       test:
@@ -60,5 +68,44 @@ services:
       retries: 3
       start_period: 30s
 
+  database-init:
+    image: ${COMPOSE_PROJECT_NAME:-reeva}-app
+    pull_policy: never
+    entrypoint: ['node', '/app/scripts/init_database_secret.mjs']
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_USER: ${POSTGRES_USER:-reeva}
+      POSTGRES_DB: ${POSTGRES_DB:-reeva}
+    volumes:
+      - reeva_database_credentials:/app/secrets
+      - reeva_postgres_admin:/app/admin-secrets
+    restart: 'no'
+
+  postgres:
+    image: postgres:17-alpine
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-reeva}
+      POSTGRES_PASSWORD_FILE: /run/reeva-admin/postgres_password
+      REEVA_DB_USER: ${POSTGRES_USER:-reeva}
+    volumes:
+      - reeva_postgres:/var/lib/postgresql/data
+      - reeva_database_credentials:/run/reeva-secrets:ro
+      - reeva_postgres_admin:/run/reeva-admin:ro
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/10-reeva.sh:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
 volumes:
   reeva_storage:
+  reeva_postgres:
+  reeva_database_credentials:
+  reeva_postgres_admin:

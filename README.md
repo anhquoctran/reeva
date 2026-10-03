@@ -21,6 +21,7 @@ An Over-The-Air (OTA) release management system built with AdonisJS.
 
 - Node.js >= 24.0.0
 - pnpm 11.20.0 (pinned in `package.json`)
+- PostgreSQL 17 for direct starts, or Docker Compose for a managed database
 
 ## Installation
 
@@ -38,7 +39,7 @@ An Over-The-Air (OTA) release management system built with AdonisJS.
    ```
 
 3. Set up environment variables:
-   Copy `.env.example` to `.env` and configure your settings.
+   Copy `.env.example` to `.env`. Configure a PostgreSQL database with `DB_CONNECTION=pg`, `DB_HOST`, `DB_PORT=5432`, `DB_USER`, `DB_PASSWORD` (or `DB_PASSWORD_FILE`), and `DB_DATABASE`. The role must own its application database to run migrations. SQLite and MySQL are no longer supported. For remote TLS, set `DB_SSL=true` and optionally `DB_SSL_CA_PATH` to a PEM CA file; server certificates are verified.
 
 4. Run database migrations:
 
@@ -76,8 +77,12 @@ pnpm build
 Start the production server:
 
 ```bash
-pnpm start
+cd build
+NODE_ENV=production node --env-file=../.env bin/server.js
 ```
+
+The build does not copy `.env`. Supply process environment variables instead
+of `--env-file` when your deployment injects configuration.
 
 ### Docker Compose quick start
 
@@ -87,17 +92,13 @@ From the repository root, run:
 docker compose up -d --build
 ```
 
-Compose uses SQLite in a persistent named volume by default, creates and persists
-an application key when one is not configured, applies pending migrations,
-seeds the base data, and starts Reeva on port `8888`. No `.env` file or separate
-migration command is required.
+Compose starts **PostgreSQL 17** on a private network, generates and persists random database credentials and an application key, applies pending migrations, seeds base data, and starts Reeva at **http://localhost:8888**. No `.env` file or separate migration command is required. Database data, credentials and local objects have separate persistent named volumes. The application role cannot create roles/databases or act as a superuser. PostgreSQL is not exposed on a host port.
 
-Set both `ADMIN_EMAIL` and `ADMIN_PASSWORD` (at least 16 characters) in `.env`
-before starting to create the initial root account. Without them, no default or
-shared administrator password is created and CMS login remains unprovisioned.
-To use MySQL, set `DB_CONNECTION=mysql` and provide a database reachable from the
-container via `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_DATABASE`.
-Configure SMTP as well if password reset and other email delivery are needed.
+Set both `ADMIN_EMAIL` and `ADMIN_PASSWORD` (at least 16 characters) in `.env` before starting to create the initial root account. Without them, CMS login remains unprovisioned; there is no shared administrator password. Configure SMTP for password reset email delivery.
+
+Compose uses `POSTGRES_USER` and `POSTGRES_DB` (both default to `reeva`). Leave `POSTGRES_PASSWORD` blank to generate a random persistent password. Keep these settings stable after the first start: changing credentials requires coordinated database role and secret rotation. Direct-start `DB_*` settings, including legacy `DB_CONNECTION=mysql`, do not override Compose's managed PostgreSQL connection. Startup validates connectivity and authentication before migrations and reports safe error codes.
+
+**Existing SQLite/MySQL data is not automatically transferred.** Existing storage volumes and source databases are preserved. Stop writes, back up the source, and follow [the PostgreSQL migration guide](docs/postgresql.md) before starting normal seeding on the destination. An empty PostgreSQL database is a new installation, not a migration of your previous releases.
 
 To use AWS S3 or an S3-compatible service such as MinIO, SeaweedFS, OCI Object
 Storage, or Cloudflare R2, set `STORAGE_DRIVER=s3` and the `S3_*` variables in
@@ -125,20 +126,11 @@ The API remains public. Product-specific download URLs returned from the scoped 
 
 ## Testing
 
-Run the test suite:
+Run the test suite (creates and removes a disposable PostgreSQL container/database; Docker must be available):
 
 ```bash
 pnpm test
 ```
-
-## Docker
-
-You can also run the application using Docker:
-
-1. Build and start the containers:
-   ```bash
-   docker compose up --build
-   ```
 
 ## Scripts
 
@@ -149,7 +141,11 @@ You can also run the application using Docker:
 - `pnpm lint` - Lint code
 - `pnpm format` - Format code
 - `pnpm typecheck` - Type check
-- `pnpm verify:production-smoke` - Smoke test the built production server using a temporary SQLite database
+- `pnpm verify:production-smoke` - Smoke test the isolated production build with a disposable PostgreSQL database
+- `pnpm verify:docker-compose` - Verify a fresh isolated Compose startup, health, restricted DB role and restart persistence (requires port 8888 to be free)
+- `pnpm verify:migration-upgrade` - Verify PostgreSQL fresh/upgrade/rollback paths
+- `pnpm verify:legacy-import` - Verify atomic legacy imports and safety guards
+- `pnpm db:import --file /secure/export.json --empty-target --dry-run` - Validate a legacy export against an empty migrated PostgreSQL target
 - `pnpm db:migrate` - Run additive database migrations
 - `pnpm db:seed` - Seed database; requires initial root credentials
 - `pnpm db:fresh` - Destructively reset and seed the database (development only)
@@ -172,7 +168,9 @@ You can also run the application using Docker:
 ## Deployment notes
 
 - The container runs as the unprivileged `node` user and stores local artifacts in the persistent `/app/storage` volume.
-- Configure the database and `APP_KEY` before starting; run `pnpm db:migrate` as a release step before deploying new application code.
+- For direct starts, configure PostgreSQL and `APP_KEY`, migrate, seed and build before launching `build/bin/server.js`. Compose performs these startup steps and persists its generated key.
+- Back up the PostgreSQL database, credential volumes, application key and object storage together. Do not remove named volumes to resolve connection errors.
+- Tests accept only generated `reeva_test_*` databases. For CI/existing disposable PostgreSQL, set explicit `REEVA_TEST_PG_HOST`, `REEVA_TEST_PG_PORT`, `REEVA_TEST_PG_USER`, `REEVA_TEST_PG_PASSWORD`; the test role needs permission to create/drop test databases. Application `.env` database credentials are never used.
 - Set `MAX_UPLOAD_SIZE` to the maximum multipart request size your proxy and temporary disk can support. Uploads are streamed to storage after body parsing.
 - The server does not trust forwarded headers by default. Set `TRUSTED_PROXIES` to the reverse proxy IPs/CIDRs when running behind a proxy.
 

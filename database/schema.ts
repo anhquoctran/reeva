@@ -252,6 +252,19 @@ export class RememberMeTokenSchema extends BaseModel {
   declare updatedAt: DateTime
 }
 
+export class SessionSchema extends BaseModel {
+  static $columns = ['data', 'expiresAt', 'id', 'userId'] as const
+  $columns = SessionSchema.$columns
+  @column()
+  declare data: string
+  @column.dateTime()
+  declare expiresAt: DateTime
+  @column({ isPrimary: true })
+  declare id: string
+  @column()
+  declare userId: string | null
+}
+
 export class SettingSchema extends BaseModel {
   static $columns = ['createdAt', 'deletedAt', 'id', 'key', 'updatedAt', 'value'] as const
   $columns = SettingSchema.$columns

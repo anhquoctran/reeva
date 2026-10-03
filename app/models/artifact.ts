@@ -12,6 +12,9 @@ import StorageProvider from '#models/storage_provider'
 export default class Artifact extends compose(ArtifactSchema, SoftDeletes) {
   static selfAssignPrimaryKey = true
 
+  @column({ consume: (value) => (value === null ? null : Number(value)) })
+  declare sizeBytes: number | null
+
   @column({ columnName: 'checksum_md5' })
   declare checksumMd5: string | null
 

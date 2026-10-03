@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+node /app/scripts/check_database_connection.mjs
+
 mkdir -p /app/storage
 
 if [ -z "${APP_KEY:-}" ]; then
@@ -34,7 +36,9 @@ if [ -z "${APP_KEY:-}" ]; then
   export APP_KEY
 fi
 
+echo '[startup] Applying database migrations...'
 node build/ace.js migration:run --force
+echo '[startup] Seeding base data...'
 node build/ace.js db:seed
 
 exec "$@"
