@@ -3,6 +3,9 @@ import Setting from '#models/setting'
 
 export default class extends BaseSeeder {
   async run() {
-    await Setting.updateOrCreate({ key: 'uploadLimitSize' }, { value: '1GB' })
+    await Setting.firstOrCreate(
+      { key: 'uploadLimitSize' },
+      { key: 'uploadLimitSize', value: '1GB' }
+    )
   }
 }

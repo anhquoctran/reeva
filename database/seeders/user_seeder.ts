@@ -6,6 +6,12 @@ export default class extends BaseSeeder {
   async run() {
     const email = env.get('ADMIN_EMAIL')?.trim().toLowerCase()
     const password = env.get('ADMIN_PASSWORD')
+    if (!email && !password) {
+      // Docker can start without inventing a known root password. Configure
+      // both variables to create the initial CMS administrator.
+      return
+    }
+
     if (!email || !password || password.length < 16) {
       throw new Error(
         'Set ADMIN_EMAIL and an ADMIN_PASSWORD of at least 16 characters before seeding users.'

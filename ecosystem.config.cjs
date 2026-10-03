@@ -12,7 +12,7 @@ module.exports = {
       node_args: '--enable-source-maps',
       env: {
         NODE_ENV: 'production',
-        PORT: 3333,
+        PORT: process.env.PORT || 8888,
         HOST: '0.0.0.0',
       },
     },

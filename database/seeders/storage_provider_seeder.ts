@@ -1,6 +1,9 @@
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import StorageProvider from '#models/storage_provider'
 import path from 'node:path'
+import db from '@adonisjs/lucid/services/db'
+import env from '#start/env'
+import { s3CompatibleConfigFromEnvironment } from '#services/storage/s3_compatible_config'
 
 export default class extends BaseSeeder {
   async run() {
@@ -69,5 +72,39 @@ export default class extends BaseSeeder {
         quotaBytes: 10 * 1024 * 1024 * 1024,
       }
     )
+
+    if (env.get('STORAGE_DRIVER') === 's3') {
+      // Validate the env contract before selecting it. Credentials intentionally
+      // stay in the process environment and are not copied into the DB config.
+      s3CompatibleConfigFromEnvironment()
+
+      const providers = await StorageProvider.all()
+      let provider = providers.find(
+        (candidate) =>
+          candidate.config?.driver === 's3' && candidate.config?.configSource === 'environment'
+      )
+
+      if (!provider) {
+        provider = await StorageProvider.create({
+          name: 'S3-compatible Object Storage (.env)',
+          type: 'cloud',
+          config: { driver: 's3', configSource: 'environment' },
+          isDefault: false,
+          isActive: true,
+          quotaBytes: 10 * 1024 * 1024 * 1024,
+        })
+      }
+
+      await db.transaction(async (trx) => {
+        await trx.from('storage_providers').update({ is_default: false })
+        const selectedProvider = await StorageProvider.query({ client: trx })
+          .where('id', provider.id)
+          .firstOrFail()
+        selectedProvider.config = { driver: 's3', configSource: 'environment' }
+        selectedProvider.isActive = true
+        selectedProvider.isDefault = true
+        await selectedProvider.save()
+      })
+    }
   }
 }

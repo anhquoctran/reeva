@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { cp, mkdtemp, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { once } from 'node:events'
@@ -9,23 +9,28 @@ import { randomBytes } from 'node:crypto'
 
 const buildRoot = join(process.cwd(), 'build')
 const temporaryRoot = await mkdtemp(join(tmpdir(), 'reeva-production-smoke-'))
+const isolatedBuildRoot = join(temporaryRoot, 'build')
 const adminEmail = 'production-smoke@example.invalid'
 const adminPassword = 'production-smoke-password-0123456789'
 const portServer = createServer()
 
+await cp(buildRoot, isolatedBuildRoot, {
+  recursive: true,
+  filter: (source) => !source.endsWith('/.env'),
+})
+await symlink(join(process.cwd(), 'node_modules'), join(isolatedBuildRoot, 'node_modules'), 'dir')
+
 await new Promise((resolve, reject) => {
   portServer.once('error', reject)
-  portServer.listen(0, '127.0.0.1', resolve)
+  portServer.listen(8888, '127.0.0.1', resolve)
 })
-const { port } = portServer.address()
 await new Promise((resolve) => portServer.close(resolve))
 
-const origin = `http://127.0.0.1:${port}`
+const origin = 'http://127.0.0.1:8888'
 const env = {
   ...process.env,
   NODE_ENV: 'production',
   HOST: '127.0.0.1',
-  PORT: String(port),
   LOG_LEVEL: 'error',
   APP_KEY: randomBytes(32).toString('hex'),
   APP_URL: origin,
@@ -41,10 +46,11 @@ const env = {
   ADMIN_EMAIL: adminEmail,
   ADMIN_PASSWORD: adminPassword,
 }
+delete env.PORT
 
 function runAce(...args) {
-  const result = spawnSync(process.execPath, [join(buildRoot, 'ace.js'), ...args], {
-    cwd: process.cwd(),
+  const result = spawnSync(process.execPath, [join(isolatedBuildRoot, 'ace.js'), ...args], {
+    cwd: isolatedBuildRoot,
     env,
     encoding: 'utf8',
     timeout: 30_000,
@@ -67,8 +73,8 @@ try {
   runAce('migration:run', '--force')
   runAce('db:seed')
 
-  server = spawn(process.execPath, [join(buildRoot, 'bin/server.js')], {
-    cwd: process.cwd(),
+  server = spawn(process.execPath, [join(isolatedBuildRoot, 'bin/server.js')], {
+    cwd: isolatedBuildRoot,
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
@@ -162,7 +168,7 @@ try {
   assert.equal(invalidLegacyCheck.status, 400)
 
   process.stdout.write(
-    'production smoke passed: fresh SQLite migration + seed, login/CSRF, root software/version/artifact pages, scoped and legacy API validation\n'
+    'production smoke passed: no .env and no PORT, default 8888, fresh SQLite migration + seed, login/CSRF, root software/version/artifact pages, scoped and legacy API validation\n'
   )
 } finally {
   if (server && server.exitCode === null) {

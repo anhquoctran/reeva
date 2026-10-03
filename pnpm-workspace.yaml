@@ -23,4 +23,4 @@ overrides:
   vite@7: ^7.3.5
 
 patchedDependencies:
-  minio@8.0.7: patches/minio@8.0.7.patch
+  braces@3.0.3: patches/braces@3.0.3.patch

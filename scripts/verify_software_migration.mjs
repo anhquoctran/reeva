@@ -17,11 +17,11 @@ const migrationName = '1777100000000_add_software_products'
 const env = {
   ...process.env,
   NODE_ENV: 'development',
-  PORT: '3333',
+  PORT: '8888',
   HOST: '127.0.0.1',
   LOG_LEVEL: 'error',
   APP_KEY: 'temporary-software-migration-check-key-01234567890123456789',
-  APP_URL: 'http://localhost:3333',
+  APP_URL: 'http://localhost:8888',
   SESSION_DRIVER: 'cookie',
   DB_CONNECTION: 'sqlite',
   SQLITE_DATABASE_PATH: filename,

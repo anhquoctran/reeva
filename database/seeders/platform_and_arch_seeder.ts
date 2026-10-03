@@ -22,7 +22,7 @@ export default class extends BaseSeeder {
     ]
 
     for (const p of platforms) {
-      await Platform.updateOrCreate({ name: p.name }, p)
+      await Platform.firstOrCreate({ name: p.name }, p)
     }
 
     // Architectures
@@ -35,7 +35,7 @@ export default class extends BaseSeeder {
     ]
 
     for (const a of architectures) {
-      await Architecture.updateOrCreate({ name: a.name }, a)
+      await Architecture.firstOrCreate({ name: a.name }, a)
     }
   }
 }

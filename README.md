@@ -59,6 +59,10 @@ Start the development server with hot module replacement:
 pnpm dev
 ```
 
+The default HTTP port is `8888` for development, production, PM2, Docker, and
+Docker Compose. Set `PORT` to override it; Docker Compose publishes the same
+port on the host and in the container.
+
 ## Building
 
 Build the application for production:
@@ -74,6 +78,33 @@ Start the production server:
 ```bash
 pnpm start
 ```
+
+### Docker Compose quick start
+
+From the repository root, run:
+
+```bash
+docker compose up -d --build
+```
+
+Compose uses SQLite in a persistent named volume by default, creates and persists
+an application key when one is not configured, applies pending migrations,
+seeds the base data, and starts Reeva on port `8888`. No `.env` file or separate
+migration command is required.
+
+Set both `ADMIN_EMAIL` and `ADMIN_PASSWORD` (at least 16 characters) in `.env`
+before starting to create the initial root account. Without them, no default or
+shared administrator password is created and CMS login remains unprovisioned.
+To use MySQL, set `DB_CONNECTION=mysql` and provide a database reachable from the
+container via `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_DATABASE`.
+Configure SMTP as well if password reset and other email delivery are needed.
+
+To use AWS S3 or an S3-compatible service such as MinIO, SeaweedFS, OCI Object
+Storage, or Cloudflare R2, set `STORAGE_DRIVER=s3` and the `S3_*` variables in
+`.env`. The bucket must already exist. See [S3-compatible object storage](docs/object-storage.md)
+for provider examples and the compatibility boundary.
+
+Check startup with `docker compose ps` and view application logs with `docker compose logs -f app`.
 
 ## Managing multiple software products
 

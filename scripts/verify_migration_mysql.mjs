@@ -28,11 +28,11 @@ function runAce(command, args) {
   const env = {
     ...process.env,
     NODE_ENV: 'development',
-    PORT: '3333',
+    PORT: '8888',
     HOST: '127.0.0.1',
     LOG_LEVEL: 'error',
     APP_KEY: 'temporary-mysql-migration-check-key-012345678901234567890123456789',
-    APP_URL: 'http://localhost:3333',
+    APP_URL: 'http://localhost:8888',
     SESSION_DRIVER: 'cookie',
     DB_CONNECTION: 'mysql',
     DB_HOST: host,

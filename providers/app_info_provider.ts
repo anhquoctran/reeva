@@ -1,5 +1,6 @@
 import type { ApplicationService } from '@adonisjs/core/types'
 import edge from 'edge.js'
+import { shutdownS3CompatibleClients } from '#services/storage/providers/s3_compatible_provider'
 
 export default class AppInfoProvider {
   constructor(protected app: ApplicationService) {}
@@ -26,5 +27,7 @@ export default class AppInfoProvider {
   }
 
   public async ready() {}
-  public async shutdown() {}
+  public async shutdown() {
+    shutdownS3CompatibleClients()
+  }
 }

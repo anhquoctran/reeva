@@ -1,18 +1,19 @@
 import type StorageProvider from '#models/storage_provider'
 import LocalProvider from './providers/local_provider.js'
-import MinIOProvider from './providers/min_io_provider.js'
-import AWSS3Provider from './providers/aws_s3_provider.js'
-import SeaweedFSProvider from './providers/seaweed_fs_provider.js'
+import S3CompatibleProvider from './providers/s3_compatible_provider.js'
+import {
+  normalizeS3CompatibleConfig,
+  s3CompatibleConfigFromEnvironment,
+} from './s3_compatible_config.js'
 import type { BaseStorageProvider } from '#services/storage/base_storage_provider'
 
-/**
- * Storage Manager maps provider types to their actual implementations.
- */
-const PROVIDER_MAP: Record<string, new (config: unknown) => BaseStorageProvider> = {
-  local: LocalProvider,
-  minio: MinIOProvider,
-  s3: AWSS3Provider,
-  seaweedfs: SeaweedFSProvider,
+const S3_DRIVERS = new Set(['s3', 'minio', 'seaweedfs', 'oci', 'r2'])
+
+function asConfig(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Storage provider configuration must be an object.')
+  }
+  return value as Record<string, unknown>
 }
 
 export default class StorageManager {
@@ -20,13 +21,25 @@ export default class StorageManager {
    * Resolves a StorageProvider model instance into a concrete implementation.
    */
   static resolve(provider: StorageProvider): BaseStorageProvider {
-    const driverName = (provider.config as any)?.driver || provider.type
-    const ProviderClass = PROVIDER_MAP[driverName]
+    const config = asConfig(provider.config)
+    const configuredDriver = config.driver
+    const driverName =
+      typeof configuredDriver === 'string' && configuredDriver.trim()
+        ? configuredDriver.trim().toLowerCase()
+        : provider.type.toLowerCase()
 
-    if (!ProviderClass) {
-      throw new Error(`Unsupported provider: ${provider.type}`)
+    if (driverName === 'local') {
+      return new LocalProvider(config)
     }
 
-    return new ProviderClass(provider.config)
+    if (S3_DRIVERS.has(driverName)) {
+      const s3Config =
+        config.configSource === 'environment'
+          ? s3CompatibleConfigFromEnvironment()
+          : normalizeS3CompatibleConfig(config, driverName)
+      return new S3CompatibleProvider(s3Config)
+    }
+
+    throw new Error(`Unsupported storage provider driver: ${driverName}`)
   }
 }

@@ -27,8 +27,8 @@ jobs:
       DB_CONNECTION: sqlite
       SQLITE_DATABASE_PATH: ${{ runner.temp }}/reeva-ci-${{ github.run_id }}.sqlite
       APP_KEY: test-only-key-01234567890123456789012345678901
-      APP_URL: http://localhost:3333
-      PORT: 3333
+      APP_URL: http://localhost:8888
+      PORT: 8888
       HOST: 127.0.0.1
       LOG_LEVEL: error
       SESSION_DRIVER: cookie

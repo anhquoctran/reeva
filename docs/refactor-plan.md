@@ -9,8 +9,8 @@
 5. Storage providers accept `Readable` streams and declared lengths. Uploads reserve quota in a DB transaction, use `artifacts/<reservation UUID>/payload` keys, and compensate by deleting the new object when the DB write fails. The next upload to a provider retries cleanup of expired reservations and their deterministic object keys.
 6. Download counters use an atomic SQL increment. Downloads make no third-party geolocation request; new location fields remain null until a licensed HTTPS source is configured.
 7. Password reset tokens are stored as SHA-256 digests, consumed once in a transaction, and advance a per-user auth version. Session middleware rejects stale cookies; remember-me remains enabled for 30 days and is rotated by Adonis.
-8. Migrations are additive. No deployed database is reset; the user's `yargs-parser` lockfile change is retained while dependency resolutions are refreshed for advisory fixes.
-9. MinIO's notification stream parser is patched narrowly for the selected safe `stream-json` major version; the patch is included in both Docker dependency-install stages. Runtime commit metadata is provided through optional `APP_GIT_SHA`, so the image does not need Git installed.
+8. Migrations are additive. No deployed database is reset; the user's `yargs-parser` lockfile change is retained. The `braces` advisory has no published fixed release in the current GitHub advisory, so the dependency is locally patched with a bounded parse depth and a regression test until an upstream version is available.
+9. S3-compatible services use one AWS SDK SigV4 adapter with `.env`-backed endpoint, region, path-style, credential, retry, and connect/socket-timeout settings; legacy MinIO/SeaweedFS records normalize into that contract. A bounded reusable client pool is closed on shutdown. Build output contains no copied `.env`; deployment injects secrets at runtime. Runtime commit metadata is provided through optional `APP_GIT_SHA`, so the image does not need Git installed.
 
 ## Multi-software product boundary
 

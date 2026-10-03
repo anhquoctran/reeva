@@ -24,21 +24,23 @@ COPY --from=deps /app/node_modules /app/node_modules
 ADD . .
 # Build only needs schema-valid dummy configuration; production credentials are
 # supplied when the container runs and are never copied into the image.
-RUN NODE_ENV=production PORT=3333 HOST=0.0.0.0 LOG_LEVEL=info \
+RUN NODE_ENV=production PORT=8888 HOST=0.0.0.0 LOG_LEVEL=info \
     APP_KEY=build-only-key-012345678901234567890123456789 \
-    APP_URL=http://localhost:3333 SESSION_DRIVER=cookie DB_CONNECTION=sqlite \
+    APP_URL=http://localhost:8888 SESSION_DRIVER=cookie DB_CONNECTION=sqlite \
     MAIL_MAILER=smtp MAIL_FROM_NAME=Reeva MAIL_FROM_ADDRESS=build@example.invalid \
     SMTP_HOST=localhost SMTP_PORT=1025 node ace build
 
 # Stage 4: Final production image
 FROM base AS production
-ENV NODE_ENV=production
+ENV NODE_ENV=production PORT=8888
 WORKDIR /app
 COPY --from=production-deps /app/node_modules /app/node_modules
 COPY --from=build /app/build /app/build
 COPY --from=build /app/package.json /app/package.json
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN mkdir -p /app/storage/uploads && chown -R node:node /app/storage
 USER node
 
-EXPOSE 3333
+EXPOSE 8888
+ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]
 CMD ["node", "build/bin/server.js"]
