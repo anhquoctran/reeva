@@ -7,19 +7,15 @@
 
     <div class="card-premium p-6">
       <h2 class="text-sm font-bold text-gray-900 mb-4">Add software</h2>
-      <form action="{{ route('cms.software.store') }}" method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+      <form action="{{ route('cms.software.store') }}" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
         {{ csrfField() }}
         <label class="space-y-1">
           <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Display name</span>
           <input name="name" maxlength="120" value="{{ old('name') || '' }}" class="input-base" placeholder="Desktop Client" required />
         </label>
-        <label class="space-y-1">
-          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Stable slug</span>
-          <input name="slug" maxlength="80" value="{{ old('slug') || '' }}" class="input-base" placeholder="desktop-client" pattern="[a-z0-9]+(-[a-z0-9]+)*" required />
-        </label>
         <button type="submit" class="btn-primary px-6">Add software</button>
       </form>
-      <p class="text-xs text-gray-400 mt-3">Slugs are permanent identifiers used by OTA API URLs. Existing releases are never moved when names change.</p>
+      <p class="text-xs text-gray-400 mt-3">Reeva generates a safe API slug from this name. Duplicate names get a numeric suffix. Slugs remain permanent if you later rename the software.</p>
     </div>
 
     <div class="card-premium overflow-hidden">

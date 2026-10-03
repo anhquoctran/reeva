@@ -3,6 +3,21 @@ import db from '@adonisjs/lucid/services/db'
 import SoftwareRepository from '#repositories/software_repository'
 import Software from '#models/software'
 
+const MAX_SLUG_LENGTH = 80
+
+function createSafeSlug(name: string) {
+  const slug = name
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, MAX_SLUG_LENGTH)
+    .replace(/-+$/g, '')
+
+  return slug || 'software'
+}
+
 @inject()
 export default class SoftwareService {
   constructor(protected softwareRepository: SoftwareRepository) {}
@@ -25,16 +40,23 @@ export default class SoftwareService {
 
   async create(data: Record<string, unknown>) {
     const name = typeof data.name === 'string' ? data.name.trim() : ''
-    const slug = typeof data.slug === 'string' ? data.slug.trim() : ''
     if (!name || name.length > 120) throw new Error('Name must be between 1 and 120 characters.')
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) {
-      throw new Error('Slug must use lowercase letters, numbers, and single hyphens.')
-    }
-    if (await this.softwareRepository.findBySlug(slug)) {
-      throw new Error('That software slug is already in use.')
-    }
+    const baseSlug = createSafeSlug(name)
 
     return db.transaction(async (trx) => {
+      // Serialize slug allocation so simultaneous products with the same name
+      // receive different slugs before the unique database constraint is hit.
+      await trx.rawQuery('SELECT pg_advisory_xact_lock(1919247734, 3)')
+
+      let slug = baseSlug
+      let suffix = 1
+      while (await trx.from('software').where('slug', slug).first()) {
+        suffix++
+        const suffixText = `-${suffix}`
+        const prefix = baseSlug.slice(0, MAX_SLUG_LENGTH - suffixText.length).replace(/-+$/g, '')
+        slug = `${prefix}${suffixText}`
+      }
+
       return Software.create(
         {
           name,

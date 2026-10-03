@@ -276,6 +276,34 @@ test.group('security and release regressions', (group) => {
     assert.isNumber(fixture.storageProvider.quotaBytes)
   })
 
+  test('software slugs are safely generated, unique under concurrent creation, and stable after rename', async ({
+    assert,
+  }) => {
+    const service = new SoftwareService(new SoftwareRepository())
+    const first = await service.create({
+      name: '  Crème Brûlée / Desktop!  ',
+      slug: 'unsafe/client-supplied-slug',
+    })
+    assert.equal(first.slug, 'creme-brulee-desktop')
+
+    const [second, third] = await Promise.all([
+      service.create({ name: 'Crème Brûlée / Desktop!' }),
+      service.create({ name: 'Crème Brûlée / Desktop!' }),
+    ])
+    assert.sameMembers(
+      [second.slug, third.slug],
+      ['creme-brulee-desktop-2', 'creme-brulee-desktop-3']
+    )
+
+    const fallback = await service.create({ name: '✨' })
+    assert.equal(fallback.slug, 'software')
+    assert.match(first.slug, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    assert.isAtMost(first.slug.length, 80)
+
+    const renamed = await service.updateName(first.id, 'Renamed Desktop App')
+    assert.equal(renamed.slug, 'creme-brulee-desktop')
+  })
+
   test('semantic versions, OTA selection, and legacy routing are isolated per software', async ({
     assert,
   }) => {

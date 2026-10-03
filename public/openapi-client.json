@@ -1,0 +1,388 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Reeva OTA Client API",
+    "version": "1.0.0",
+    "description": "Public, read-only API for OTA clients to check for updates, list releases, and download artifacts. No authentication is required. Prefer software-scoped endpoints. Legacy endpoints without a software slug target the active default software product."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Same origin as the Reeva deployment. Use the deployment's HTTPS base URL in the client."
+    }
+  ],
+  "security": [],
+  "tags": [
+    {
+      "name": "OTA",
+      "description": "Update discovery and artifact delivery"
+    }
+  ],
+  "paths": {
+    "/api/software/{slug}/check": {
+      "get": {
+        "tags": ["OTA"],
+        "operationId": "checkSoftwareForUpdate",
+        "summary": "Check for an update for a software product",
+        "description": "Returns the newest published, non-archived artifact newer than the supplied client version for the selected platform, architecture, and channel. Returns 204 when there is no update.",
+        "parameters": [
+          { "$ref": "#/components/parameters/SoftwareSlug" },
+          { "$ref": "#/components/parameters/Platform" },
+          { "$ref": "#/components/parameters/Architecture" },
+          { "$ref": "#/components/parameters/Channel" },
+          {
+            "name": "version",
+            "in": "query",
+            "required": true,
+            "description": "The client's current semantic version.",
+            "schema": { "type": "string", "minLength": 1, "maxLength": 100, "example": "1.4.1" }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/UpdateAvailable" },
+          "204": { "$ref": "#/components/responses/NoUpdate" },
+          "400": { "$ref": "#/components/responses/InvalidRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/software/{slug}/latest": {
+      "get": {
+        "tags": ["OTA"],
+        "operationId": "getLatestSoftwareRelease",
+        "summary": "Get the latest release for a software product",
+        "description": "Returns the latest published, non-archived artifact for the selected platform, architecture, and channel. If currentVersion is supplied, hasUpdate indicates whether the latest release is newer.",
+        "parameters": [
+          { "$ref": "#/components/parameters/SoftwareSlug" },
+          { "$ref": "#/components/parameters/Platform" },
+          { "$ref": "#/components/parameters/Architecture" },
+          { "$ref": "#/components/parameters/Channel" },
+          {
+            "name": "currentVersion",
+            "in": "query",
+            "required": false,
+            "description": "Optional client semantic version used to calculate hasUpdate.",
+            "schema": { "type": "string", "minLength": 1, "maxLength": 100, "example": "1.4.1" }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/LatestRelease" },
+          "400": { "$ref": "#/components/responses/InvalidRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/software/{slug}/releases": {
+      "get": {
+        "tags": ["OTA"],
+        "operationId": "listSoftwareReleases",
+        "summary": "List releases for a software product",
+        "description": "Returns a newest-first, paginated list of published, non-archived artifacts for the selected platform, architecture, and channel. page defaults to 1; limit defaults to 20 and cannot exceed 100.",
+        "parameters": [
+          { "$ref": "#/components/parameters/SoftwareSlug" },
+          { "$ref": "#/components/parameters/Platform" },
+          { "$ref": "#/components/parameters/Architecture" },
+          { "$ref": "#/components/parameters/Channel" },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 1000000, "default": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ReleasePage" },
+          "400": { "$ref": "#/components/responses/InvalidRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/software/{slug}/download/{id}": {
+      "get": {
+        "tags": ["OTA"],
+        "operationId": "downloadSoftwareArtifact",
+        "summary": "Download a published artifact",
+        "description": "Streams the artifact bytes and records a download attempt. The UUID must belong to the software identified by slug and the artifact must be publicly eligible.",
+        "parameters": [
+          { "$ref": "#/components/parameters/SoftwareSlug" },
+          { "$ref": "#/components/parameters/ArtifactId" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ArtifactBinary" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/StorageUnavailable" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/check": {
+      "get": {
+        "tags": ["OTA"],
+        "operationId": "checkDefaultSoftwareForUpdate",
+        "summary": "Check for an update using the default software",
+        "description": "Legacy equivalent of /api/software/{slug}/check. Resolves the active product marked as default.",
+        "parameters": [
+          { "$ref": "#/components/parameters/Platform" },
+          { "$ref": "#/components/parameters/Architecture" },
+          { "$ref": "#/components/parameters/Channel" },
+          {
+            "name": "version",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "minLength": 1, "maxLength": 100, "example": "1.4.1" }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/UpdateAvailable" },
+          "204": { "$ref": "#/components/responses/NoUpdate" },
+          "400": { "$ref": "#/components/responses/InvalidRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/latest": {
+      "get": {
+        "tags": ["OTA"],
+        "operationId": "getLatestDefaultSoftwareRelease",
+        "summary": "Get the latest release using the default software",
+        "description": "Legacy equivalent of /api/software/{slug}/latest. Resolves the active product marked as default.",
+        "parameters": [
+          { "$ref": "#/components/parameters/Platform" },
+          { "$ref": "#/components/parameters/Architecture" },
+          { "$ref": "#/components/parameters/Channel" },
+          {
+            "name": "currentVersion",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1, "maxLength": 100, "example": "1.4.1" }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/LatestRelease" },
+          "400": { "$ref": "#/components/responses/InvalidRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/releases": {
+      "get": {
+        "tags": ["OTA"],
+        "operationId": "listDefaultSoftwareReleases",
+        "summary": "List releases using the default software",
+        "description": "Legacy equivalent of /api/software/{slug}/releases. Resolves the active product marked as default.",
+        "parameters": [
+          { "$ref": "#/components/parameters/Platform" },
+          { "$ref": "#/components/parameters/Architecture" },
+          { "$ref": "#/components/parameters/Channel" },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 1000000, "default": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ReleasePage" },
+          "400": { "$ref": "#/components/responses/InvalidRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/download/{id}": {
+      "get": {
+        "tags": ["OTA"],
+        "operationId": "downloadDefaultSoftwareArtifact",
+        "summary": "Download an artifact using the default software",
+        "description": "Legacy equivalent of /api/software/{slug}/download/{id}. Resolves the active product marked as default.",
+        "parameters": [{ "$ref": "#/components/parameters/ArtifactId" }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ArtifactBinary" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/StorageUnavailable" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "SoftwareSlug": {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "description": "Permanent software product slug configured in the Reeva CMS.",
+        "schema": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "maxLength": 80, "example": "desktop-client" }
+      },
+      "ArtifactId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Artifact UUID returned in the update or release response.",
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "Platform": {
+        "name": "platform",
+        "in": "query",
+        "required": true,
+        "description": "Platform identifier exactly as configured in Reeva, for example windows or linux.",
+        "schema": { "type": "string", "pattern": "^[a-z0-9_-]+$", "maxLength": 100, "example": "windows" }
+      },
+      "Architecture": {
+        "name": "arch",
+        "in": "query",
+        "required": true,
+        "description": "Architecture identifier exactly as configured in Reeva, for example x64 or arm64.",
+        "schema": { "type": "string", "pattern": "^[a-z0-9_-]+$", "maxLength": 100, "example": "x64" }
+      },
+      "Channel": {
+        "name": "channel",
+        "in": "query",
+        "required": false,
+        "description": "Release channel. Defaults to stable.",
+        "schema": { "type": "string", "enum": ["dev", "staging", "beta", "stable"], "default": "stable" }
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": { "type": "string", "description": "Human-readable error message." }
+        }
+      },
+      "UpdateAvailable": {
+        "type": "object",
+        "required": ["version", "codename", "changelog", "channel", "downloadUrl", "md5", "sha1", "sha256", "sha512", "sizeBytes", "publishedAt"],
+        "properties": {
+          "version": { "type": "string", "description": "Available semantic version.", "example": "1.4.2" },
+          "codename": { "type": ["string", "null"] },
+          "changelog": { "type": ["string", "null"], "description": "Release notes; Markdown may be used." },
+          "channel": { "$ref": "#/components/schemas/ReleaseChannel" },
+          "downloadUrl": { "type": "string", "format": "uri" },
+          "md5": { "type": ["string", "null"], "pattern": "^[a-f0-9]{32}$" },
+          "sha1": { "type": ["string", "null"], "pattern": "^[a-f0-9]{40}$" },
+          "sha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "sha512": { "type": ["string", "null"], "pattern": "^[a-f0-9]{128}$" },
+          "sizeBytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
+          "publishedAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "LatestRelease": {
+        "type": "object",
+        "required": ["version", "codename", "changelog", "platform", "arch", "channel", "fileName", "sizeBytes", "checksum", "hasUpdate", "downloadUrl"],
+        "properties": {
+          "version": { "type": "string", "example": "1.4.2" },
+          "codename": { "type": ["string", "null"] },
+          "changelog": { "type": ["string", "null"] },
+          "platform": { "type": "string", "example": "windows" },
+          "arch": { "type": "string", "example": "x64" },
+          "channel": { "$ref": "#/components/schemas/ReleaseChannel" },
+          "fileName": { "type": "string", "example": "Desktop_Client_windows_x64_v1.4.2.msi" },
+          "sizeBytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
+          "checksum": { "type": ["string", "null"], "description": "SHA-256 checksum in lowercase hexadecimal." },
+          "hasUpdate": { "type": "boolean", "description": "True if currentVersion was omitted or the latest version is newer." },
+          "downloadUrl": { "type": "string", "format": "uri" }
+        }
+      },
+      "Release": {
+        "type": "object",
+        "required": ["id", "version", "codename", "changelog", "platform", "arch", "channel", "fileName", "sizeBytes", "checksum", "publishedAt", "downloadUrl"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "version": { "type": "string", "example": "1.4.2" },
+          "codename": { "type": ["string", "null"] },
+          "changelog": { "type": ["string", "null"] },
+          "platform": { "type": "string" },
+          "arch": { "type": "string" },
+          "channel": { "$ref": "#/components/schemas/ReleaseChannel" },
+          "fileName": { "type": "string" },
+          "sizeBytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
+          "checksum": { "type": ["string", "null"], "description": "SHA-256 checksum in lowercase hexadecimal." },
+          "publishedAt": { "type": ["string", "null"], "format": "date-time" },
+          "downloadUrl": { "type": "string", "format": "uri" }
+        }
+      },
+      "ReleasePage": {
+        "type": "object",
+        "required": ["data", "pagination"],
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Release" } },
+          "pagination": { "$ref": "#/components/schemas/Pagination" }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "required": ["total", "page", "limit", "totalPages"],
+        "properties": {
+          "total": { "type": "integer", "minimum": 0 },
+          "page": { "type": "integer", "minimum": 1 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "totalPages": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ReleaseChannel": {
+        "type": "string",
+        "enum": ["dev", "staging", "beta", "stable"]
+      }
+    },
+    "responses": {
+      "UpdateAvailable": {
+        "description": "A newer published artifact is available.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateAvailable" } } }
+      },
+      "NoUpdate": {
+        "description": "No newer published artifact is available. Response body is empty."
+      },
+      "LatestRelease": {
+        "description": "Latest published artifact for the requested target.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LatestRelease" } } }
+      },
+      "ReleasePage": {
+        "description": "One page of published releases.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReleasePage" } } }
+      },
+      "ArtifactBinary": {
+        "description": "Artifact file bytes streamed as an attachment. Verify the downloaded bytes against the SHA-256 checksum returned by the update/release endpoint.",
+        "headers": {
+          "Content-Disposition": { "description": "Attachment filename.", "schema": { "type": "string" } },
+          "Content-Length": { "description": "Artifact size in bytes when known.", "schema": { "type": "integer", "format": "int64" } },
+          "X-Content-Type-Options": { "schema": { "type": "string", "example": "nosniff" } }
+        },
+        "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } }
+      },
+      "InvalidRequest": {
+        "description": "Required query parameter is missing or invalid. Version values must be valid semantic versions; page and limit must be positive integers within their documented bounds.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "NotFound": {
+        "description": "Software, target, or publicly eligible artifact was not found. This also occurs when the selected platform/channel has no releases.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "StorageUnavailable": {
+        "description": "Artifact storage is temporarily unavailable; the client may retry with backoff.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "ServerError": {
+        "description": "Unexpected server error. The generic exception handler may return an HTML status page or a negotiated response depending on deployment and request headers."
+      }
+    }
+  }
+}

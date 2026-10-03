@@ -109,7 +109,7 @@ Check startup with `docker compose ps` and view application logs with `docker co
 
 ## Managing multiple software products
 
-Root users can add products at **CMS → Software**. Each product has a permanent lowercase slug, its own semantic-version sequence, and active/default state. A version belongs to exactly one product; artifacts inherit that product from their version. Slugs appear in OTA API paths and should be treated as stable client identifiers.
+Root users can add products at **CMS → Software**. Reeva generates a safe lowercase slug from the product name; duplicate names receive a numeric suffix. The slug is permanent after creation, has its own semantic-version sequence, and identifies the product in OTA API paths. A version belongs to exactly one product; artifacts inherit that product from their version.
 
 The additive database migration creates the default product with slug `reeva` and moves every existing version under it. When an `appName` setting exists, its value becomes the display name; otherwise the display name is `Reeva`. Existing artifacts stay attached to the same versions and keep their storage keys and checksums. New artifact filenames use their product's display name.
 
@@ -121,6 +121,8 @@ GET /api/software/:slug/latest?platform=windows&arch=x64&channel=stable
 GET /api/software/:slug/releases?platform=windows&arch=x64&channel=stable&page=1&limit=20
 GET /api/software/:slug/download/:id
 ```
+
+The client-facing OpenAPI 3.1 JSON is available in [`public/openapi-client.json`](public/openapi-client.json) and is served at `/openapi-client.json` on a running Reeva instance. It documents both the product-scoped endpoints and the legacy default-product endpoints.
 
 The API remains public. Product-specific download URLs returned from the scoped endpoints retain the slug, so an artifact cannot be downloaded through another product's path. Deactivating a product immediately removes its releases from public OTA selection and download while retaining the database rows and stored objects. Select a new default before deactivating the current default. Version numbers may repeat across different products but remain unique within one product.
 
