@@ -4,10 +4,10 @@ import type { HasMany } from '@adonisjs/lucid/types/relations'
 import { compose } from '@adonisjs/core/helpers'
 import { SoftDeletes } from '#models/mixins/soft_deletes'
 import { randomUUID } from 'node:crypto'
-import type { default as LicenseActivation } from '#models/license_activation'
+import LicenseActivation from '#models/license_activation'
 
 export default class License extends compose(LicenseSchema, SoftDeletes) {
-  @hasMany(() => import('#models/license_activation'))
+  @hasMany(() => LicenseActivation)
   declare activations: HasMany<typeof LicenseActivation>
 
   @beforeCreate()

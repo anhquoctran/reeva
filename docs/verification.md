@@ -25,9 +25,12 @@ Commands ran from the repository root with Node `v24.18.0` and pnpm `11.20.0`:
 | `pnpm verify:software-migration` | Pass on disposable SQLite: additive product migration down/reapply, legacy `appName` preserved as the `reeva` product name, version `7.8.9` backfilled, non-null software foreign key and foreign-key check passed |
 | `REEVA_TEST_MYSQL_HOST=127.0.0.1 REEVA_TEST_MYSQL_PORT=13306 REEVA_TEST_MYSQL_USER=root REEVA_TEST_MYSQL_PASSWORD=<temporary password> pnpm verify:migration:mysql` | Pass on disposable MySQL 8.4.11: fresh migrations, additive down/reapply, preserved legacy user, revoked synthetic remember-me token, public-release index and reservation foreign key verified; random schema dropped afterward |
 | `pnpm build` | Pass, production client assets and server bundle generated |
+| `pnpm verify:production-smoke` | Pass after a fresh rebuild: temporary SQLite migrations + seed, CSRF form login, seeded root authentication, root Software/Version/Artifact pages, product-scoped invalid API input (`400`), unknown software (`404`), and legacy route input (`400`) |
+| Docker Compose verification | Pass: `docker compose config --quiet` and `docker compose build app`; then a temporary Compose project with synthetic environment, fresh SQLite volume, random loopback port, migrations/seed, root login, CMS pages, and legacy API validation; project, container, and volume removed |
 | MySQL software-product migration | Pass on disposable MySQL 8.4.11: software migration down/reapply, old version `7.8.9` and legacy product name retained; random schema/container removed afterward |
 | `docker build -t reeva:multi-software-audit .` | Pass using Node 24 and frozen pnpm install |
 | Production-container HTTP smoke | Pass after fresh SQLite migrations: scoped invalid check `400`, unknown software `404`, legacy invalid check `400`, unauthenticated `/cms/software` redirects `302`; temporary container removed |
+| Conflict-resolution production image smoke (`docker build --tag reeva:conflict-smoke .`, then temporary container) | Pass: container runs fresh SQLite migrations and seed as the unprivileged `node` user, serves `/login` with Vite assets, authenticates the seeded root account, and renders Software/Version/Artifact CMS pages; container and its writable layer removed |
 
 The stream-disconnect regression intentionally logs the simulated stream error through the application's warning logger; the test itself passes and confirms the accepted download count remains one.
 

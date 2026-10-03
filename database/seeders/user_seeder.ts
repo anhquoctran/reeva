@@ -1,6 +1,5 @@
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import User from '#models/user'
-import hash from '@adonisjs/core/services/hash'
 import env from '#start/env'
 
 export default class extends BaseSeeder {
@@ -15,11 +14,12 @@ export default class extends BaseSeeder {
 
     const user = await User.firstOrCreate(
       { email },
-      { email, passwordHash: await hash.make(password), isRoot: true, isActive: true }
+      // AuthFinder hashes this mapped password column when the model is saved.
+      { email, passwordHash: password, isRoot: true, isActive: true }
     )
     if (!user.isRoot || user.passwordHash === 'admin') {
       user.isRoot = true
-      if (user.passwordHash === 'admin') user.passwordHash = await hash.make(password)
+      if (user.passwordHash === 'admin') user.passwordHash = password
       await user.save()
     }
   }

@@ -6,7 +6,6 @@ import { randomBytes } from 'node:crypto'
 import { createHash } from 'node:crypto'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
-import hash from '@adonisjs/core/services/hash'
 
 @inject()
 export default class AuthService {
@@ -55,7 +54,6 @@ export default class AuthService {
   async updatePasswordByToken(token: string, password: string) {
     const userModule = await import('#models/user')
     const User = userModule.default
-    const passwordHash = await hash.make(password)
     const now = DateTime.utc().toJSDate()
     const hashedToken = this.hashResetToken(token)
 
@@ -83,7 +81,8 @@ export default class AuthService {
 
       const user = await User.query({ client: trx }).where('email', tokenData.email).firstOrFail()
       if (!user.isActive) throw new Error('Invalid token or expired.')
-      user.passwordHash = passwordHash
+      // AuthFinder hashes the mapped password column in its model save hook.
+      user.passwordHash = password
       user.authVersion++
       await user.useTransaction(trx).save()
 

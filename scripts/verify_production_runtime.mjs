@@ -52,6 +52,9 @@ function runAce(...args) {
   if (result.status !== 0) {
     throw new Error(`${args.join(' ')} failed:\n${result.stdout}\n${result.stderr}`)
   }
+  if (args[0] === 'db:seed' && (result.stdout || result.stderr)) {
+    process.stdout.write(`${result.stdout}${result.stderr}`)
+  }
 }
 
 function sessionCookies(response) {
@@ -88,7 +91,7 @@ try {
 
   const loginHtml = await loginPage.text()
   const csrf = loginHtml.match(
-    /<input\b(?=[^>]*\bname="_csrf")(?=[^>]*\bvalue="([^"]+)")[^>]*>/
+    /<input\b(?=[^>]*\bname=['"]_csrf['"])(?=[^>]*\bvalue=['"]([^'"]+)['"])[^>]*>/
   )?.[1]
   assert.ok(
     csrf,
@@ -113,6 +116,16 @@ try {
     cookieJar.set(cookie.split('=', 1)[0], cookie)
   }
 
+  if (loginResponse.headers.get('location') === '/') {
+    const followUpLogin = await fetch(`${origin}/login`, {
+      headers: { cookie: [...cookieJar.values()].join('; ') },
+    })
+    const followUpHtml = await followUpLogin.text()
+    assert.fail(
+      `Root login returned to /; invalid credentials shown=${followUpHtml.includes('Invalid email or password.')}; cookies=${[...cookieJar.keys()].join(',')}`
+    )
+  }
+
   const authenticatedHeaders = { cookie: [...cookieJar.values()].join('; ') }
   for (const [path, expectedContent] of [
     ['/cms/software', 'Manage the products whose OTA releases are hosted by Reeva'],
@@ -120,11 +133,16 @@ try {
     ['/cms/artifacts', 'Reeva'],
   ]) {
     const response = await fetch(`${origin}${path}`, {
+      redirect: 'manual',
       headers: authenticatedHeaders,
       signal: AbortSignal.timeout(5_000),
     })
     const html = await response.text()
-    assert.equal(response.status, 200, `${path} must render for a root user: ${html.slice(0, 300)}`)
+    assert.equal(
+      response.status,
+      200,
+      `${path} must render for a root user (redirect=${response.headers.get('location')}): ${html.slice(0, 300)}`
+    )
     assert.ok(html.includes(expectedContent), `${path} must include its expected page content`)
   }
 

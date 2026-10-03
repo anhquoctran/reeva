@@ -1,7 +1,6 @@
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import db from '@adonisjs/lucid/services/db'
-import hash from '@adonisjs/core/services/hash'
 import { DateTime } from 'luxon'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
@@ -621,7 +620,7 @@ test.group('security and release regressions', (group) => {
     const user = await User.create({
       email: `reset-${randomUUID()}@example.test`,
       fullName: null,
-      passwordHash: await hash.make('old-password-at-least-12'),
+      passwordHash: 'old-password-at-least-12',
       isRoot: false,
       isActive: true,
       theme: 'system',
@@ -655,11 +654,23 @@ test.group('security and release regressions', (group) => {
 
     const service = new AuthService(new UserRepository())
     await assert.rejects(() => service.updatePasswordByToken(expiredToken, 'another-new-password'))
-    const results = await Promise.allSettled([
-      service.updatePasswordByToken(rawToken, 'new-password-number-one'),
-      service.updatePasswordByToken(rawToken, 'new-password-number-two'),
-    ])
+    const newPasswords = ['new-password-number-one', 'new-password-number-two']
+    const results = await Promise.allSettled(
+      newPasswords.map((password) => service.updatePasswordByToken(rawToken, password))
+    )
     assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1)
+
+    const passwordMatches = await Promise.all(
+      newPasswords.map(async (password) => {
+        try {
+          await User.verifyCredentials(user.email, password)
+          return true
+        } catch {
+          return false
+        }
+      })
+    )
+    assert.deepEqual(passwordMatches.sort(), [false, true])
 
     const updated = await User.findOrFail(user.id)
     assert.equal(updated.authVersion, 1)

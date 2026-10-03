@@ -28,8 +28,8 @@ services:
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-sandbox.smtp.mailtrap.io}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-465}
-      SMTP_USERNAME: ${SMTP_USERNAME}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
     command: node build/bin/server.js
     volumes:
       - reeva_storage:/app/storage

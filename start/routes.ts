@@ -76,7 +76,8 @@ router
         router
           .post('/versions/:id/toggle', [VersionsController, 'toggle'])
           .as('cms.versions.toggle')
-        router.get('/versions/:id/delete', [VersionsController, 'destroy'])
+        router
+          .get('/versions/:id/delete', [VersionsController, 'destroy'])
           .as('cms.versions.destroy')
 
         router.get('/licenses', [LicensesController, 'index']).as('cms.licenses.index')
@@ -84,8 +85,15 @@ router
         router.post('/licenses', [LicensesController, 'store']).as('cms.licenses.store')
         router.get('/licenses/:id/edit', [LicensesController, 'edit']).as('cms.licenses.edit')
         router.post('/licenses/:id', [LicensesController, 'update']).as('cms.licenses.update')
-        router.post('/licenses/:id/activate', [LicensesController, 'activate']).as('cms.licenses.activate')
-        router.post('/licenses/:id/activations/:activationId/delete', [LicensesController, 'destroyActivation']).as('cms.licenses.activations.destroy')
+        router
+          .post('/licenses/:id/activate', [LicensesController, 'activate'])
+          .as('cms.licenses.activate')
+        router
+          .post('/licenses/:id/activations/:activationId/delete', [
+            LicensesController,
+            'destroyActivation',
+          ])
+          .as('cms.licenses.activations.destroy')
         router
           .post('/licenses/:id/toggle', [LicensesController, 'toggle'])
           .as('cms.licenses.toggle')
