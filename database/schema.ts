@@ -21,7 +21,29 @@ export class ArchitectureSchema extends BaseModel {
 }
 
 export class ArtifactSchema extends BaseModel {
-  static $columns = ['architectureId', 'channel', 'checksum', 'checksumMd5', 'checksumSha1', 'checksumSha256', 'checksumSha512', 'createdAt', 'deletedAt', 'downloadCount', 'fileName', 'id', 'isArchived', 'isPublished', 'mimeType', 'platformId', 'publishedAt', 'sizeBytes', 'storageKey', 'storageProviderId', 'versionId'] as const
+  static $columns = [
+    'architectureId',
+    'channel',
+    'checksum',
+    'checksumMd5',
+    'checksumSha1',
+    'checksumSha256',
+    'checksumSha512',
+    'createdAt',
+    'deletedAt',
+    'downloadCount',
+    'fileName',
+    'id',
+    'isArchived',
+    'isPublished',
+    'mimeType',
+    'platformId',
+    'publishedAt',
+    'sizeBytes',
+    'storageKey',
+    'storageProviderId',
+    'versionId',
+  ] as const
   $columns = ArtifactSchema.$columns
   @column()
   declare architectureId: string
@@ -67,8 +89,29 @@ export class ArtifactSchema extends BaseModel {
   declare versionId: string
 }
 
+export class AuthRateLimitSchema extends BaseModel {
+  static $columns = ['attempts', 'key', 'windowEndsAt'] as const
+  $columns = AuthRateLimitSchema.$columns
+  @column()
+  declare attempts: number
+  @column({ isPrimary: true })
+  declare key: string
+  @column.dateTime()
+  declare windowEndsAt: DateTime
+}
+
 export class DownloadHistorySchema extends BaseModel {
-  static $columns = ['artifactId', 'countryCode', 'createdAt', 'deletedAt', 'id', 'ipAddress', 'lat', 'lng', 'userAgent'] as const
+  static $columns = [
+    'artifactId',
+    'countryCode',
+    'createdAt',
+    'deletedAt',
+    'id',
+    'ipAddress',
+    'lat',
+    'lng',
+    'userAgent',
+  ] as const
   $columns = DownloadHistorySchema.$columns
   @column()
   declare artifactId: string
@@ -125,7 +168,15 @@ export class PlatformSchema extends BaseModel {
 }
 
 export class RememberMeTokenSchema extends BaseModel {
-  static $columns = ['createdAt', 'deletedAt', 'expiresAt', 'hash', 'id', 'tokenableId', 'updatedAt'] as const
+  static $columns = [
+    'createdAt',
+    'deletedAt',
+    'expiresAt',
+    'hash',
+    'id',
+    'tokenableId',
+    'updatedAt',
+  ] as const
   $columns = RememberMeTokenSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -161,7 +212,17 @@ export class SettingSchema extends BaseModel {
 }
 
 export class StorageProviderSchema extends BaseModel {
-  static $columns = ['config', 'createdAt', 'deletedAt', 'id', 'isActive', 'isDefault', 'name', 'quotaBytes', 'type'] as const
+  static $columns = [
+    'config',
+    'createdAt',
+    'deletedAt',
+    'id',
+    'isActive',
+    'isDefault',
+    'name',
+    'quotaBytes',
+    'type',
+  ] as const
   $columns = StorageProviderSchema.$columns
   @column()
   declare config: any
@@ -183,11 +244,41 @@ export class StorageProviderSchema extends BaseModel {
   declare type: string
 }
 
+export class StorageUploadReservationSchema extends BaseModel {
+  static $columns = ['createdAt', 'expiresAt', 'id', 'sizeBytes', 'storageProviderId'] as const
+  $columns = StorageUploadReservationSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column.dateTime()
+  declare expiresAt: DateTime
+  @column({ isPrimary: true })
+  declare id: string
+  @column()
+  declare sizeBytes: bigint | number
+  @column()
+  declare storageProviderId: string
+}
+
 export class UserSchema extends BaseModel {
-  static $columns = ['accentColor', 'createdAt', 'deletedAt', 'email', 'fullName', 'id', 'isActive', 'isRoot', 'passwordHash', 'theme', 'updatedAt'] as const
+  static $columns = [
+    'accentColor',
+    'authVersion',
+    'createdAt',
+    'deletedAt',
+    'email',
+    'fullName',
+    'id',
+    'isActive',
+    'isRoot',
+    'passwordHash',
+    'theme',
+    'updatedAt',
+  ] as const
   $columns = UserSchema.$columns
   @column()
   declare accentColor: number | null
+  @column()
+  declare authVersion: number
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column.dateTime()
@@ -211,7 +302,19 @@ export class UserSchema extends BaseModel {
 }
 
 export class VersionSchema extends BaseModel {
-  static $columns = ['changelog', 'codename', 'createdAt', 'deletedAt', 'id', 'isActive', 'major', 'minor', 'patch', 'releaseDate'] as const
+  static $columns = [
+    'changelog',
+    'codename',
+    'createdAt',
+    'deletedAt',
+    'id',
+    'isActive',
+    'major',
+    'minor',
+    'patch',
+    'releaseDate',
+    'softwareId',
+  ] as const
   $columns = VersionSchema.$columns
   @column()
   declare changelog: string | null
@@ -231,12 +334,55 @@ export class VersionSchema extends BaseModel {
   declare minor: number
   @column()
   declare patch: number
+  @column()
+  declare softwareId: string
   @column.dateTime()
   declare releaseDate: DateTime | null
 }
 
+export class SoftwareSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'id',
+    'isActive',
+    'isDefault',
+    'name',
+    'slug',
+    'updatedAt',
+  ] as const
+  $columns = SoftwareSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: string
+  @column()
+  declare isActive: boolean
+  @column()
+  declare isDefault: boolean
+  @column()
+  declare name: string
+  @column()
+  declare slug: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+}
+
 export class LicenseSchema extends BaseModel {
-  static $columns = ['activationCount', 'createdAt', 'customerEmail', 'customerName', 'deletedAt', 'expiresAt', 'id', 'licenseKey', 'maxActivations', 'productName', 'revokedAt', 'status', 'updatedAt'] as const
+  static $columns = [
+    'activationCount',
+    'createdAt',
+    'customerEmail',
+    'customerName',
+    'deletedAt',
+    'expiresAt',
+    'id',
+    'licenseKey',
+    'maxActivations',
+    'productName',
+    'revokedAt',
+    'status',
+    'updatedAt',
+  ] as const
   $columns = LicenseSchema.$columns
   @column()
   declare activationCount: number
@@ -278,4 +424,3 @@ export class LicenseActivationSchema extends BaseModel {
   @column()
   declare machineId: string
 }
- 

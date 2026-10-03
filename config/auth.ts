@@ -23,7 +23,7 @@ const authConfig = defineConfig({
        * When enabled, users can stay logged in across browser sessions.
        */
       useRememberMeTokens: true,
-      rememberMeTokensAge: '2 years',
+      rememberMeTokensAge: '30 days',
 
       /**
        * User provider configuration.

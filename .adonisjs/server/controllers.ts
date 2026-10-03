@@ -10,8 +10,10 @@ export const controllers = {
   cms: {
     Artifacts: () => import('#controllers/cms/artifacts_controller'),
     Dashboards: () => import('#controllers/cms/dashboards_controller'),
+    Licenses: () => import('#controllers/cms/licenses_controller'),
     Profiles: () => import('#controllers/cms/profiles_controller'),
     Settings: () => import('#controllers/cms/settings_controller'),
+    Software: () => import('#controllers/cms/software_controller'),
     StorageProviders: () => import('#controllers/cms/storage_providers_controller'),
     Users: () => import('#controllers/cms/users_controller'),
     Versions: () => import('#controllers/cms/versions_controller'),

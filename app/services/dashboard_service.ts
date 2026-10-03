@@ -9,6 +9,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import app from '@adonisjs/core/services/app'
 import StorageProvider from '#models/storage_provider'
+import Software from '#models/software'
 
 @inject()
 export default class DashboardService {
@@ -30,12 +31,13 @@ export default class DashboardService {
     }
 
     if (defaultProvider) {
-      const usageResult = await this.artifactRepository.query()
+      const usageResult = await db
+        .from('artifacts')
         .where('storage_provider_id', defaultProvider.id)
-        .sum('size_bytes as totalUsage')
+        .sum({ totalUsage: 'size_bytes' })
         .first()
 
-      const total = usageResult?.$extras.totalUsage
+      const total = usageResult?.totalUsage
       stats.used = total ? Number(total) : 0
       stats.quota = Number(defaultProvider.quotaBytes || 0)
       stats.name = defaultProvider.name
@@ -57,7 +59,12 @@ export default class DashboardService {
       dbStatus = 'error'
     }
 
-    const storage = await this.getStorageStats()
+    let storage
+    try {
+      storage = await this.getStorageStats()
+    } catch {
+      storage = { name: 'Unknown', used: 0, quota: 0, percentage: 0, status: 'error' }
+    }
 
     return {
       db: dbStatus,
@@ -76,6 +83,7 @@ export default class DashboardService {
     // Metrics counts
     const [
       totalVersionsResult,
+      totalSoftwareResult,
       totalArtifactsResult,
       activeSPResult,
       downloadsTotalResult,
@@ -84,42 +92,70 @@ export default class DashboardService {
       statsMonth,
     ] = await Promise.all([
       this.versionRepository.query().count('* as total').first(),
+      Software.query().count('* as total').first(),
       this.artifactRepository.query().count('* as total').first(),
       this.storageProviderRepository.query().count('* as total').first(),
-      db.from('artifacts').sum('download_count as total').first() as Promise<{ total: number | null } | undefined>,
-      this.downloadHistoryRepository.query().where('createdAt', '>=', todayStart.toSQL()!).count('* as total').first(),
-      this.downloadHistoryRepository.query().where('createdAt', '>=', weekStart.toSQL()!).count('* as total').first(),
-      this.downloadHistoryRepository.query().where('createdAt', '>=', monthStart.toSQL()!).count('* as total').first(),
+      db.from('artifacts').sum('download_count as total').first() as Promise<
+        { total: number | null } | undefined
+      >,
+      this.downloadHistoryRepository
+        .query()
+        .where('createdAt', '>=', todayStart.toSQL()!)
+        .count('* as total')
+        .first(),
+      this.downloadHistoryRepository
+        .query()
+        .where('createdAt', '>=', weekStart.toSQL()!)
+        .count('* as total')
+        .first(),
+      this.downloadHistoryRepository
+        .query()
+        .where('createdAt', '>=', monthStart.toSQL()!)
+        .count('* as total')
+        .first(),
     ])
 
     // Chart data
+    const sqlite = db.connection().dialect.name.includes('sqlite')
+    const hourBucket = sqlite
+      ? "strftime('%Y-%m-%d %H:00:00', created_at)"
+      : "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')"
+    const dateBucket = sqlite ? 'date(created_at)' : 'DATE(created_at)'
+
     const [last24h, last7d, last30d] = await Promise.all([
-      db.from('download_histories')
-        .select(db.raw('HOUR(created_at) as hour'))
+      db
+        .from('download_histories')
+        .select(db.raw(`${hourBucket} as hour`))
         .count('* as total')
         .where('created_at', '>=', now.minus({ hours: 24 }).toSQL()!)
-        .groupBy('hour')
+        .groupByRaw(hourBucket)
         .orderBy('hour', 'asc'),
 
-      db.from('download_histories')
-        .select(db.raw('DATE(created_at) as date'))
+      db
+        .from('download_histories')
+        .select(db.raw(`${dateBucket} as date`))
         .count('* as total')
         .where('created_at', '>=', weekStart.toSQL()!)
-        .groupBy('date')
+        .groupByRaw(dateBucket)
         .orderBy('date', 'asc'),
 
-      db.from('download_histories')
-        .select(db.raw('DATE(created_at) as date'))
+      db
+        .from('download_histories')
+        .select(db.raw(`${dateBucket} as date`))
         .count('* as total')
         .where('created_at', '>=', monthStart.toSQL()!)
-        .groupBy('date')
+        .groupByRaw(dateBucket)
         .orderBy('date', 'asc'),
     ])
 
-    const formatHour = (h: number) => `${h}:00`
-    const formatDate = (dateStr: string) => {
-      const d = DateTime.fromISO(dateStr)
-      return d.isValid ? d.toFormat('LLL d') : dateStr
+    const formatHour = (value: string | Date) => {
+      const dateTime = value instanceof Date ? DateTime.fromJSDate(value) : DateTime.fromSQL(value)
+      return dateTime.isValid ? dateTime.toFormat('HH:00') : String(value)
+    }
+    const formatDate = (value: string | Date) => {
+      const dateTime =
+        value instanceof Date ? DateTime.fromJSDate(value) : DateTime.fromISO(String(value))
+      return dateTime.isValid ? dateTime.toFormat('LLL d') : String(value)
     }
 
     const allChartData = {
@@ -134,8 +170,9 @@ export default class DashboardService {
     const pkg = JSON.parse(await readFile(pkgPath, 'utf-8'))
 
     // Recent artifacts
-    const recentArtifacts = await this.artifactRepository.query()
-      .preload('version')
+    const recentArtifacts = await this.artifactRepository
+      .query()
+      .preload('version', (versionQuery) => versionQuery.preload('software'))
       .preload('platform')
       .orderBy('createdAt', 'desc')
       .limit(5)
@@ -143,6 +180,7 @@ export default class DashboardService {
     return {
       stats: {
         versions: totalVersionsResult?.$extras.total || 0,
+        software: totalSoftwareResult?.$extras.total || 0,
         artifacts: totalArtifactsResult?.$extras.total || 0,
         storageProviders: activeSPResult?.$extras.total || 0,
         downloads: Number(downloadsTotalResult?.total || 0),

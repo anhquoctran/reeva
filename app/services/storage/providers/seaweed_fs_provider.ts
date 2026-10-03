@@ -1,6 +1,7 @@
 import * as Minio from 'minio'
-import crypto from 'node:crypto'
-import { BaseStorageProvider } from '../BaseStorageProvider.js'
+import { type Readable } from 'node:stream'
+import { type BaseStorageProvider } from '../base_storage_provider.js'
+import type { UploadOptions } from '../base_storage_provider.js'
 
 /**
  * SeaweedFSProvider handles file storage on SeaweedFS using its S3-compatible Filer interface.
@@ -18,12 +19,12 @@ export default class SeaweedFSProvider implements BaseStorageProvider {
     })
   }
 
-  async upload(file: Buffer, options?: any): Promise<{ key: string }> {
-    const key = options?.key || `${crypto.randomUUID()}-${options?.fileName || 'file'}`
+  async upload(file: Readable, options: UploadOptions): Promise<{ key: string }> {
+    const { key } = options
     const bucket = this.config.bucket
 
     const metaData: Minio.ItemBucketMetadata = {
-      'Content-Type': options?.contentType || 'application/octet-stream',
+      'Content-Type': options.contentType,
     }
 
     try {
@@ -34,30 +35,21 @@ export default class SeaweedFSProvider implements BaseStorageProvider {
       // Ignore if bucket exists or creation fails due to permissions
     }
 
-    await this.client.putObject(bucket, key, file, file.length, metaData)
+    await this.client.putObject(bucket, key, file, options.contentLength, metaData)
     return { key }
   }
 
   async getDownloadUrl(key: string): Promise<string> {
-    const protocol = (this.config.useSSL === true || this.config.useSSL === 'true') ? 'https' : 'http'
+    const protocol = this.config.useSSL === true || this.config.useSSL === 'true' ? 'https' : 'http'
     const portString = this.config.port ? `:${this.config.port}` : ''
     return `${protocol}://${this.config.endpoint}${portString}/${this.config.bucket}/${key}`
   }
 
-  async getStream(key: string): Promise<any> {
+  async getStream(key: string): Promise<Readable> {
     return this.client.getObject(this.config.bucket, key)
   }
 
   async delete(key: string): Promise<void> {
     await this.client.removeObject(this.config.bucket, key)
-  }
-
-  async archive(key: string): Promise<void> {
-    const archiveKey = `archive/${key}`
-    const conds = new Minio.CopyConditions()
-    try {
-      await this.client.copyObject(this.config.bucket, archiveKey, `${this.config.bucket}/${key}`, conds)
-      await this.client.removeObject(this.config.bucket, key)
-    } catch (_err) {}
   }
 }

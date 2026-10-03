@@ -12,8 +12,9 @@ export default class SettingsController {
   }
 
   async store({ request, response, session }: HttpContext) {
-    const { key, value } = request.all()
-    
+    const key = request.input('key')
+    const value = request.input('value')
+
     try {
       await this.settingService.createSetting(key, value)
       session.flash('success', 'Setting created successfully.')
@@ -25,8 +26,8 @@ export default class SettingsController {
   }
 
   async update({ params, request, response, session }: HttpContext) {
-    const { value } = request.all()
-    
+    const value = request.input('value')
+
     try {
       const setting = await this.settingService.updateSetting(params.id, value)
       session.flash('success', `Setting "${setting.key}" updated.`)
@@ -43,8 +44,8 @@ export default class SettingsController {
       session.flash('success', 'Setting deleted successfully.')
       return response.redirect().back()
     } catch (error: any) {
-       session.flash('error', error.message)
-       return response.redirect().back()
+      session.flash('error', error.message)
+      return response.redirect().back()
     }
   }
 }

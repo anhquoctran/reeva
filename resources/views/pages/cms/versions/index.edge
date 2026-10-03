@@ -15,10 +15,10 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
         <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Version Management</h1>
-        <p class="text-gray-500 text-sm mt-1">Deploy and manage your software release cycle.</p>
+        <p class="text-gray-500 text-sm mt-1">Deploy releases for the selected software.</p>
       </div>
       <div class="flex items-center gap-3">
-        <a href="{{ route('cms.versions.create') }}" class="btn-primary px-6 shadow-sm shadow-brand-200">
+        <a href="/cms/versions/create?softwareId={{ selectedSoftwareId }}" class="btn-primary px-6 shadow-sm shadow-brand-200">
           Create New Version
         </a>
       </div>
@@ -27,7 +27,15 @@
     <!-- Filters Section -->
     <div class="card-premium p-6">
       <form action="{{ route('cms.versions.index') }}" method="GET" class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Software</label>
+            <select name="softwareId" class="input-base text-xs py-2">
+              @each(software in softwareProducts)
+                <option value="{{ software.id }}" {{ selectedSoftwareId === software.id ? 'selected' : '' }}>{{ software.name }}</option>
+              @end
+            </select>
+          </div>
           <div class="space-y-1">
             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Version Number Search</label>
             <input type="text" name="versionNumber" value="{{ filters.versionNumber || '' }}" class="input-base text-xs py-2" placeholder="e.g. >=1.0.0 or 1.0.*" />

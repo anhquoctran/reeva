@@ -15,7 +15,7 @@
     <div class="card-premium p-8 shadow-xl shadow-gray-100">
       @form({ action: route('cms.licenses.update', { id: license.id }), method: 'POST' })
         <div class="space-y-8">
-          
+
           <!-- Key and Product Grid -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-2">
@@ -89,7 +89,7 @@
           <p class="text-brand-100 text-sm max-w-2xl">Copy this token and provide it to the client for offline activation. This token is cryptographically bound to the Machine ID you provided.</p>
           <div class="flex items-center gap-2 bg-black/20 p-4 rounded-xl border border-white/10" x-data="{ copied: false, token: '{{ flashMessages.get('activationToken') }}' }">
             <code class="flex-1 font-mono text-xs break-all text-brand-50" x-text="token"></code>
-            <button @click="navigator.clipboard.writeText(token); copied = true; setTimeout(() => copied = false, 2000)" 
+            <button @click="navigator.clipboard.writeText(token); copied = true; setTimeout(() => copied = false, 2000)"
                     type="button"
                     class="p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
                     :title="copied ? 'Copied!' : 'Copy to Clipboard'">
@@ -109,7 +109,7 @@
           Active Devices
           <span class="ml-2 px-2 py-0.5 bg-gray-100 text-gray-500 rounded text-xs font-mono">{{ license.activationCount }} / {{ license.maxActivations }}</span>
         </h2>
-        
+
         <div class="card-premium overflow-hidden">
           <table class="w-full text-left text-sm whitespace-nowrap">
              <thead class="bg-gray-50/50 border-b border-gray-100 font-bold text-[10px] text-gray-400 uppercase tracking-widest">
@@ -147,13 +147,13 @@
           <form action="{{ route('cms.licenses.activate', { id: license.id }) }}" method="POST" class="space-y-6">
             {{ csrfField() }}
             <p class="text-xs text-gray-500 leading-relaxed">Enter the Hardware Fingerprint provided by the client's desktop application to generate a machine-locked signed token.</p>
-            
+
             <div class="space-y-2">
                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Machine Fingerprint (HID)</label>
                <input type="text" name="machineId" class="input-base font-mono text-xs py-3" placeholder="e.g. CPU-98X-MB-221" required />
             </div>
 
-            <button type="submit" 
+            <button type="submit"
                     {{ license.activationCount >= license.maxActivations ? 'disabled' : '' }}
                     class="btn-primary w-full py-4 text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed">
                {{ license.activationCount >= license.maxActivations ? 'Limit Reached' : 'Generate Token' }}

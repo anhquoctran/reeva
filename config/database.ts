@@ -1,12 +1,18 @@
 import app from '@adonisjs/core/services/app'
 import { defineConfig } from '@adonisjs/lucid'
 import env from '#start/env'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+const sqliteFilename = app.inTest
+  ? join(tmpdir(), `reeva-test-${process.pid}.sqlite3`)
+  : env.get('SQLITE_DATABASE_PATH') || app.tmpPath('db.sqlite3')
 
 const dbConfig = defineConfig({
   /**
    * Default connection used for all queries.
    */
-  connection: env.get('DB_CONNECTION'),
+  connection: app.inTest ? 'sqlite' : env.get('DB_CONNECTION'),
 
   /**
    * Pretty-print SQL debug output in development logs.
@@ -20,7 +26,7 @@ const dbConfig = defineConfig({
     sqlite: {
       client: 'better-sqlite3',
       connection: {
-        filename: app.tmpPath('db.sqlite3'),
+        filename: sqliteFilename,
       },
       useNullAsDefault: true,
       migrations: {
@@ -65,7 +71,6 @@ const dbConfig = defineConfig({
         user: env.get('DB_USER'),
         password: env.get('DB_PASSWORD'),
         database: env.get('DB_DATABASE'),
-        
       },
       migrations: {
         naturalSort: true,

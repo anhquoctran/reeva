@@ -11,7 +11,9 @@ import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 import AutoSwagger from 'adonis-autoswagger'
 import swaggerConfig from '#config/swagger'
-import { createReadStream, existsSync } from 'node:fs'
+import ArtifactRepository from '#repositories/artifact_repository'
+import StorageManager from '#services/storage/storage_manager'
+import { attachmentDisposition } from '#services/download_headers'
 
 // Swagger & Documentation
 router.get('/swagger.json', async () => {
@@ -33,6 +35,7 @@ const StorageProvidersController = () => import('#controllers/cms/storage_provid
 const SettingsController = () => import('#controllers/cms/settings_controller')
 const ProfilesController = () => import('#controllers/cms/profiles_controller')
 const UsersController = () => import('#controllers/cms/users_controller')
+const SoftwareController = () => import('#controllers/cms/software_controller')
 const SessionController = () => import('#controllers/session_controller')
 
 router
@@ -73,7 +76,8 @@ router
         router
           .post('/versions/:id/toggle', [VersionsController, 'toggle'])
           .as('cms.versions.toggle')
-        router.get('/versions/:id/delete', [VersionsController, 'destroy'])
+        router
+          .get('/versions/:id/delete', [VersionsController, 'destroy'])
           .as('cms.versions.destroy')
 
         router.get('/licenses', [LicensesController, 'index']).as('cms.licenses.index')
@@ -81,8 +85,15 @@ router
         router.post('/licenses', [LicensesController, 'store']).as('cms.licenses.store')
         router.get('/licenses/:id/edit', [LicensesController, 'edit']).as('cms.licenses.edit')
         router.post('/licenses/:id', [LicensesController, 'update']).as('cms.licenses.update')
-        router.post('/licenses/:id/activate', [LicensesController, 'activate']).as('cms.licenses.activate')
-        router.post('/licenses/:id/activations/:activationId/delete', [LicensesController, 'destroyActivation']).as('cms.licenses.activations.destroy')
+        router
+          .post('/licenses/:id/activate', [LicensesController, 'activate'])
+          .as('cms.licenses.activate')
+        router
+          .post('/licenses/:id/activations/:activationId/delete', [
+            LicensesController,
+            'destroyActivation',
+          ])
+          .as('cms.licenses.activations.destroy')
         router
           .post('/licenses/:id/toggle', [LicensesController, 'toggle'])
           .as('cms.licenses.toggle')
@@ -108,19 +119,49 @@ router
           .post('/artifacts/:id/publish', [ArtifactsController, 'publish'])
           .as('cms.artifacts.publish')
 
-        router.get('/storage', [StorageProvidersController, 'index']).as('cms.storage.index')
         router
-          .post('/storage/:id/activate', [StorageProvidersController, 'activate'])
-          .as('cms.storage.activate')
-        router.get('/storage/:id/edit', [StorageProvidersController, 'edit']).as('cms.storage.edit')
-        router.post('/storage/:id', [StorageProvidersController, 'update']).as('cms.storage.update')
+          .group(() => {
+            router.get('/software', [SoftwareController, 'index']).as('cms.software.index')
+            router.post('/software', [SoftwareController, 'store']).as('cms.software.store')
+            router.post('/software/:id', [SoftwareController, 'update']).as('cms.software.update')
+            router
+              .post('/software/:id/toggle', [SoftwareController, 'toggle'])
+              .as('cms.software.toggle')
+            router
+              .post('/software/:id/default', [SoftwareController, 'setDefault'])
+              .as('cms.software.default')
 
-        router.get('/settings', [SettingsController, 'index']).as('cms.settings.index')
-        router.post('/settings', [SettingsController, 'store']).as('cms.settings.store')
-        router.post('/settings/:id', [SettingsController, 'update']).as('cms.settings.update')
-        router
-          .post('/settings/:id/delete', [SettingsController, 'destroy'])
-          .as('cms.settings.destroy')
+            router.get('/storage', [StorageProvidersController, 'index']).as('cms.storage.index')
+            router
+              .post('/storage/:id/activate', [StorageProvidersController, 'activate'])
+              .as('cms.storage.activate')
+            router
+              .get('/storage/:id/edit', [StorageProvidersController, 'edit'])
+              .as('cms.storage.edit')
+            router
+              .post('/storage/:id', [StorageProvidersController, 'update'])
+              .as('cms.storage.update')
+
+            router.get('/settings', [SettingsController, 'index']).as('cms.settings.index')
+            router.post('/settings', [SettingsController, 'store']).as('cms.settings.store')
+            router.post('/settings/:id', [SettingsController, 'update']).as('cms.settings.update')
+            router
+              .post('/settings/:id/delete', [SettingsController, 'destroy'])
+              .as('cms.settings.destroy')
+
+            router.get('/users', [UsersController, 'index']).as('cms.users.index')
+            router.get('/users/create', [UsersController, 'create']).as('cms.users.create')
+            router.post('/users', [UsersController, 'store']).as('cms.users.store')
+            router.get('/users/:id/edit', [UsersController, 'edit']).as('cms.users.edit')
+            router.post('/users/:id', [UsersController, 'update']).as('cms.users.update')
+            router
+              .post('/users/:id/reset-password', [UsersController, 'resetPassword'])
+              .as('cms.users.resetPassword')
+            router
+              .post('/users/:id/toggle', [UsersController, 'toggleActive'])
+              .as('cms.users.toggle')
+          })
+          .use(middleware.root())
 
         router.get('/profile', [ProfilesController, 'index']).as('cms.profile.index')
         router.post('/profile', [ProfilesController, 'update']).as('cms.profile.update')
@@ -130,16 +171,6 @@ router
         router
           .post('/profile/appearance', [ProfilesController, 'updateAppearance'])
           .as('cms.profile.appearance')
-
-        router.get('/users', [UsersController, 'index']).as('cms.users.index')
-        router.get('/users/create', [UsersController, 'create']).as('cms.users.create')
-        router.post('/users', [UsersController, 'store']).as('cms.users.store')
-        router.get('/users/:id/edit', [UsersController, 'edit']).as('cms.users.edit')
-        router.post('/users/:id', [UsersController, 'update']).as('cms.users.update')
-        router
-          .post('/users/:id/reset-password', [UsersController, 'resetPassword'])
-          .as('cms.users.resetPassword')
-        router.post('/users/:id/toggle', [UsersController, 'toggleActive']).as('cms.users.toggle')
       })
       .prefix('/cms')
   })
@@ -152,25 +183,41 @@ router
     router.get('/latest', '#controllers/api/updater_controller.latest').as('api.latest')
     router.get('/releases', '#controllers/api/updater_controller.releases').as('api.releases')
     router.get('/download/:id', '#controllers/api/updater_controller.download').as('api.download')
+    router
+      .get('/software/:slug/check', '#controllers/api/updater_controller.check')
+      .as('api.software.check')
+    router
+      .get('/software/:slug/latest', '#controllers/api/updater_controller.latest')
+      .as('api.software.latest')
+    router
+      .get('/software/:slug/releases', '#controllers/api/updater_controller.releases')
+      .as('api.software.releases')
+    router
+      .get('/software/:slug/download/:id', '#controllers/api/updater_controller.download')
+      .as('api.software.download')
   })
   .prefix('/api')
 
 // Serving local storage files (Proxied or Direct)
 router.get('/storage/files/*', async ({ request, response }) => {
   const key = request.param('*').join('/')
-  const StorageProviderModule = await import('#models/storage_provider')
-  const StorageProvider = StorageProviderModule.default
-  const path = await import('node:path')
-  const provider = await StorageProvider.query().where('type', 'local').first()
+  const artifact = await new ArtifactRepository().findPublicByStorageKey(key)
+  const provider = artifact?.storageProvider
 
-  if (!provider) return response.status(404).send('Not Found')
+  if (!artifact || !provider || provider.type !== 'local') {
+    return response.status(404).send('Not Found')
+  }
 
-  const root = (provider.config as any)?.root || path.join(process.cwd(), 'storage', 'uploads')
-  const filePath = path.join(root, key)
-
-  if (!existsSync(filePath)) return response.status(404).send('Not Found')
-
-  const fileStream = createReadStream(filePath)
-
-  return response.stream(fileStream)
+  try {
+    const stream = await StorageManager.resolve(provider).getStream(artifact.storageKey)
+    response.header('Content-Type', 'application/octet-stream')
+    response.header('X-Content-Type-Options', 'nosniff')
+    response.header('Content-Disposition', attachmentDisposition(artifact.fileName))
+    if (artifact.sizeBytes !== null) {
+      response.header('Content-Length', Number(artifact.sizeBytes))
+    }
+    return response.stream(stream)
+  } catch {
+    return response.status(503).send('Storage is temporarily unavailable.')
+  }
 })

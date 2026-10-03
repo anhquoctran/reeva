@@ -80,7 +80,15 @@
     <!-- Filters Section -->
     <div class="card-premium p-6">
       <form action="{{ route('cms.artifacts.index') }}" method="GET" class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Software</label>
+            <select name="softwareId" class="input-base text-xs py-2">
+              @each(software in softwareProducts)
+                <option value="{{ software.id }}" {{ selectedSoftwareId === software.id ? 'selected' : '' }}>{{ software.name }}</option>
+              @end
+            </select>
+          </div>
           <div class="space-y-1">
             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">File Name</label>
             <input type="text" name="fileName" value="{{ filters.fileName || '' }}" class="input-base text-xs py-2" placeholder="Search file..." />
@@ -91,7 +99,7 @@
               <option value="">All Versions</option>
               @each(v in versions)
                 <option value="{{ v.id }}" {{ filters.versionId === v.id ? 'selected' : '' }}>
-                  {{ v.major }}.{{ v.minor }}.{{ v.patch }} {{ v.codename ? `(${v.codename})` : '' }}
+                  {{ v.software.name }} — {{ v.major }}.{{ v.minor }}.{{ v.patch }} {{ v.codename ? `(${v.codename})` : '' }}
                 </option>
               @end
             </select>
@@ -133,6 +141,7 @@
             <tr class="bg-gray-50/50 border-b border-gray-100 uppercase tracking-wider text-[10px] font-bold text-gray-400">
               <th class="px-6 py-4">#</th>
               <th class="px-6 py-4">File Name</th>
+              <th class="px-6 py-4">Software</th>
               <th class="px-6 py-4">Version</th>
               <th class="px-6 py-4">System Context</th>
               <th class="px-6 py-4">Downloads</th>
@@ -150,6 +159,10 @@
                 <td class="px-6 py-4">
                    <div class="font-bold text-gray-900 tracking-tight mb-0.5">{{ artifact.fileName }}</div>
                    <div class="text-[10px] text-gray-400 font-mono truncate max-w-xs">{{ artifact.storageKey }}</div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="font-semibold text-gray-700">{{ artifact.version.software.name }}</div>
+                  <div class="text-[10px] font-mono text-gray-400">{{ artifact.version.software.slug }}</div>
                 </td>
                 <td class="px-6 py-4">
                   <div class="flex items-center gap-2">

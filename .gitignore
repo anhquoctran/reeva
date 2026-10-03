@@ -24,6 +24,6 @@ yarn-error.log
 
 # Platform specific
 .DS_Store
-storage
+/storage/
 
 npm_cache

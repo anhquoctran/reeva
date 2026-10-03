@@ -9,7 +9,7 @@ export default class LicensesController {
   async index({ request, view }: HttpContext) {
     const page = request.input('page', 1)
     const limit = 10
-    
+
     // Filters
     const licenseKey = request.input('licenseKey')
     const customer = request.input('customer')
@@ -18,13 +18,13 @@ export default class LicensesController {
 
     const filters = { licenseKey, customer, productName, status }
     const licenses = await this.licenseService.getFilteredLicenses(page, limit, filters)
-    
+
     licenses.baseUrl(request.url())
     licenses.queryString(request.qs())
 
-    return view.render('pages/cms/licenses/index', { 
-      licenses, 
-      filters 
+    return view.render('pages/cms/licenses/index', {
+      licenses,
+      filters,
     })
   }
 

@@ -1,0 +1,74 @@
+@cms.layout({ title: 'Software' })
+  <div class="max-w-6xl mx-auto space-y-8">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Software</h1>
+      <p class="text-gray-500 text-sm mt-1">Manage the products whose OTA releases are hosted by Reeva.</p>
+    </div>
+
+    <div class="card-premium p-6">
+      <h2 class="text-sm font-bold text-gray-900 mb-4">Add software</h2>
+      <form action="{{ route('cms.software.store') }}" method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        {{ csrfField() }}
+        <label class="space-y-1">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Display name</span>
+          <input name="name" maxlength="120" value="{{ old('name') || '' }}" class="input-base" placeholder="Desktop Client" required />
+        </label>
+        <label class="space-y-1">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Stable slug</span>
+          <input name="slug" maxlength="80" value="{{ old('slug') || '' }}" class="input-base" placeholder="desktop-client" pattern="[a-z0-9]+(-[a-z0-9]+)*" required />
+        </label>
+        <button type="submit" class="btn-primary px-6">Add software</button>
+      </form>
+      <p class="text-xs text-gray-400 mt-3">Slugs are permanent identifiers used by OTA API URLs. Existing releases are never moved when names change.</p>
+    </div>
+
+    <div class="card-premium overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-100 uppercase tracking-wider text-[10px] font-bold text-gray-400">
+              <th class="px-6 py-4">Software</th>
+              <th class="px-6 py-4">API slug</th>
+              <th class="px-6 py-4">Status</th>
+              <th class="px-6 py-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            @each(software in softwareProducts)
+              <tr>
+                <td class="px-6 py-4">
+                  <form action="{{ route('cms.software.update', { id: software.id }) }}" method="POST" class="flex items-center gap-2">
+                    {{ csrfField() }}
+                    <input name="name" maxlength="120" value="{{ software.name }}" class="w-48 bg-transparent border border-transparent hover:border-gray-200 focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100 px-2 py-1 rounded text-sm font-semibold text-gray-900" required />
+                    <button class="text-[10px] font-bold text-brand-600 hover:text-brand-800">Save</button>
+                  </form>
+                  @if(software.isDefault)
+                    <span class="ml-2 rounded-full bg-brand-50 text-brand-700 px-2 py-1 text-[9px] uppercase tracking-wider">Default</span>
+                  @end
+                </td>
+                <td class="px-6 py-4 font-mono text-xs text-gray-500">{{ software.slug }}</td>
+                <td class="px-6 py-4">
+                  <span class="text-xs font-semibold {{ software.isActive ? 'text-green-700' : 'text-gray-400' }}">{{ software.isActive ? 'Active' : 'Inactive' }}</span>
+                </td>
+                <td class="px-6 py-4 text-right space-x-3">
+                  @if(!software.isDefault && software.isActive)
+                    <form action="{{ route('cms.software.default', { id: software.id }) }}" method="POST" class="inline">
+                      {{ csrfField() }}
+                      <button class="text-xs font-semibold text-brand-600 hover:text-brand-800">Make default</button>
+                    </form>
+                  @end
+                  @if(!software.isDefault)
+                    <form action="{{ route('cms.software.toggle', { id: software.id }) }}" method="POST" class="inline">
+                      {{ csrfField() }}
+                      <button class="text-xs font-semibold text-gray-500 hover:text-gray-900">{{ software.isActive ? 'Deactivate' : 'Activate' }}</button>
+                    </form>
+                  @end
+                </td>
+              </tr>
+            @end
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+@end

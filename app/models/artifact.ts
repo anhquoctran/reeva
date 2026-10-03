@@ -10,6 +10,7 @@ import Architecture from '#models/architecture'
 import StorageProvider from '#models/storage_provider'
 
 export default class Artifact extends compose(ArtifactSchema, SoftDeletes) {
+  static selfAssignPrimaryKey = true
 
   @column({ columnName: 'checksum_md5' })
   declare checksumMd5: string | null

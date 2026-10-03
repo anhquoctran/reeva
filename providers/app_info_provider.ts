@@ -1,5 +1,4 @@
 import type { ApplicationService } from '@adonisjs/core/types'
-import { execSync } from 'node:child_process'
 import edge from 'edge.js'
 
 export default class AppInfoProvider {
@@ -8,14 +7,10 @@ export default class AppInfoProvider {
   public register() {}
 
   public async boot() {
-    let gitSha1 = 'unknown'
-    let gitCommitShort = 'unknown'
-    try {
-      gitSha1 = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim()
-      gitCommitShort = gitSha1.substring(0, 8)
-    } catch {
-      // Not a git repo or git not available
-    }
+    const candidateGitSha = process.env.APP_GIT_SHA?.trim()
+    const gitSha1 =
+      candidateGitSha && /^[0-9a-f]{7,40}$/i.test(candidateGitSha) ? candidateGitSha : 'unknown'
+    const gitCommitShort = gitSha1 === 'unknown' ? 'unknown' : gitSha1.substring(0, 8)
 
     const version = this.app.version?.version ?? '0.0.0'
 

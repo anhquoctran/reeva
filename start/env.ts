@@ -21,12 +21,14 @@ export default await Env.create(new URL('../', import.meta.url), {
   // App
   APP_KEY: Env.schema.secret(),
   APP_URL: Env.schema.string({ format: 'url', tld: false }),
+  APP_GIT_SHA: Env.schema.string.optional(),
 
   // Session
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
 
   // Database
   DB_CONNECTION: Env.schema.enum(['sqlite', 'mysql', 'pg', 'mssql', 'libsql'] as const),
+  SQLITE_DATABASE_PATH: Env.schema.string.optional(),
   DB_HOST: Env.schema.string.optional({ format: 'host' }),
   DB_PORT: Env.schema.number.optional(),
   DB_USER: Env.schema.string.optional(),
@@ -46,4 +48,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   SMTP_USERNAME: Env.schema.string.optional(),
   SMTP_PASSWORD: Env.schema.string.optional(),
   SMTP_SECURE: Env.schema.boolean.optional(),
+  TRUSTED_PROXIES: Env.schema.string.optional(),
+  MAX_UPLOAD_SIZE: Env.schema.string.optional(),
+  ADMIN_EMAIL: Env.schema.string.optional(),
+  ADMIN_PASSWORD: Env.schema.string.optional(),
 })

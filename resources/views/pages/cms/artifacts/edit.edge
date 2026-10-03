@@ -26,7 +26,7 @@
             <select name="versionId" class="input-base" required>
               @each(v in versions)
                 <option value="{{ v.id }}" {{ (old('versionId') || artifact.versionId) === v.id ? 'selected' : '' }}>
-                   {{ v.major }}.{{ v.minor }}.{{ v.patch }} {{ v.codename ? `(${v.codename})` : '' }}
+                   {{ v.software.name }} — {{ v.major }}.{{ v.minor }}.{{ v.patch }} {{ v.codename ? `(${v.codename})` : '' }}
                 </option>
               @end
             </select>

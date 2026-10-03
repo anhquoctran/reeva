@@ -15,6 +15,15 @@
     <div class="card-premium p-8">
       @form({ action: route('cms.versions.store'), method: 'POST' })
         <div class="space-y-8">
+
+          <div class="max-w-md space-y-2">
+            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Software</label>
+            <select name="softwareId" class="input-base" required>
+              @each(software in softwareProducts)
+                <option value="{{ software.id }}" {{ selectedSoftwareId === software.id ? 'selected' : '' }}>{{ software.name }} ({{ software.slug }})</option>
+              @end
+            </select>
+          </div>
           
           <!-- Semantic Versioning Grid -->
           <div class="grid grid-cols-1 md:grid-cols-4 gap-6">

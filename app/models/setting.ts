@@ -5,6 +5,7 @@ import { SoftDeletes } from '#models/mixins/soft_deletes'
 import { randomUUID } from 'node:crypto'
 
 export default class Setting extends compose(SettingSchema, SoftDeletes) {
+  static selfAssignPrimaryKey = true
 
   @beforeCreate()
   static async generateUuid(setting: Setting) {

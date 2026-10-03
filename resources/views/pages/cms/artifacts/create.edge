@@ -104,7 +104,7 @@
               <option value="">Select version...</option>
               @each(v in versions)
                 <option value="{{ v.id }}" {{ old('versionId') === v.id ? 'selected' : '' }}>
-                   {{ v.major }}.{{ v.minor }}.{{ v.patch }} {{ v.codename ? `(${v.codename})` : '' }}
+                   {{ v.software.name }} — {{ v.major }}.{{ v.minor }}.{{ v.patch }} {{ v.codename ? `(${v.codename})` : '' }}
                 </option>
               @end
             </select>

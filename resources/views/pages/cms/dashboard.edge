@@ -8,7 +8,18 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
+    <div class="card-premium p-6 border-none shadow-brand-50/50 group/card">
+      <div class="flex items-center gap-4">
+        <div class="p-3 bg-violet-50 rounded-2xl text-violet-600 shadow-sm shadow-violet-100">
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h16M4 12h16M4 19h16"></path></svg>
+        </div>
+        <div class="flex flex-col">
+          <span class="stats-label">Software Products</span>
+          <span class="text-2xl font-bold text-gray-900 tracking-tight leading-none">{{ stats.software }}</span>
+        </div>
+      </div>
+    </div>
     <div class="card-premium p-6 border-none shadow-brand-50/50 group/card">
       <div class="flex items-center gap-4">
         <div class="p-3 bg-brand-50 rounded-2xl text-brand-600 shadow-sm shadow-brand-100 group-hover/card:scale-110 transition-transform">
@@ -162,7 +173,7 @@
                     <p class="text-sm font-extrabold text-gray-900 truncate">{{ art.fileName }}</p>
                     <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-brand-50 text-brand-700 uppercase tracking-wider">v{{ art.version.major }}.{{ art.version.minor }}.{{ art.version.patch }}</span>
                   </div>
-                  <p class="text-[11px] text-gray-500 font-medium">Uploaded by Administrator • <span class="text-gray-400">{{ art.createdAt.toRelative() }}</span></p>
+                  <p class="text-[11px] text-gray-500 font-medium">{{ art.version.software.name }} • Uploaded by Administrator • <span class="text-gray-400">{{ art.createdAt.toRelative() }}</span></p>
                 </div>
                 <div class="flex flex-col items-end gap-1">
                   <span class="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">{{ art.channel }}</span>

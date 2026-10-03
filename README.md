@@ -15,64 +15,89 @@ An Over-The-Air (OTA) release management system built with AdonisJS.
 - Download history tracking
 - CMS for managing releases
 - API endpoints for OTA updates
+- Multiple independent software products with product-scoped versions and OTA releases
 
 ## Prerequisites
 
 - Node.js >= 24.0.0
-- npm or yarn
+- pnpm 11.20.0 (pinned in `package.json`)
 
 ## Installation
 
 1. Clone the repository:
+
    ```bash
    git clone <repository-url>
    cd reeva
    ```
 
 2. Install dependencies:
+
    ```bash
-   npm install
+   pnpm install --frozen-lockfile
    ```
 
 3. Set up environment variables:
    Copy `.env.example` to `.env` and configure your settings.
 
 4. Run database migrations:
+
    ```bash
-   npm run db:migrate
+   pnpm db:migrate
    ```
 
-5. Seed the database (optional):
+5. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` (at least 16 characters) before seeding the initial root account, then seed the database:
    ```bash
-   npm run db:seed
+   pnpm db:seed
    ```
 
 ## Development
 
 Start the development server with hot module replacement:
+
 ```bash
-npm run dev
+pnpm dev
 ```
 
 ## Building
 
 Build the application for production:
+
 ```bash
-npm run build
+pnpm build
 ```
 
 ## Running
 
 Start the production server:
+
 ```bash
-npm start
+pnpm start
 ```
+
+## Managing multiple software products
+
+Root users can add products at **CMS → Software**. Each product has a permanent lowercase slug, its own semantic-version sequence, and active/default state. A version belongs to exactly one product; artifacts inherit that product from their version. Slugs appear in OTA API paths and should be treated as stable client identifiers.
+
+The additive database migration creates the default product with slug `reeva` and moves every existing version under it. When an `appName` setting exists, its value becomes the display name; otherwise the display name is `Reeva`. Existing artifacts stay attached to the same versions and keep their storage keys and checksums. New artifact filenames use their product's display name.
+
+Existing clients can keep using `/api/check`, `/api/latest`, `/api/releases`, and `/api/download/:id`; these paths use whichever active product is marked default. New clients should use the product-scoped paths:
+
+```text
+GET /api/software/:slug/check?platform=windows&arch=x64&channel=stable&version=1.2.3
+GET /api/software/:slug/latest?platform=windows&arch=x64&channel=stable
+GET /api/software/:slug/releases?platform=windows&arch=x64&channel=stable&page=1&limit=20
+GET /api/software/:slug/download/:id
+```
+
+The API remains public. Product-specific download URLs returned from the scoped endpoints retain the slug, so an artifact cannot be downloaded through another product's path. Deactivating a product immediately removes its releases from public OTA selection and download while retaining the database rows and stored objects. Select a new default before deactivating the current default. Version numbers may repeat across different products but remain unique within one product.
 
 ## Testing
 
 Run the test suite:
+
 ```bash
-npm test
+pnpm test
 ```
 
 ## Docker
@@ -81,21 +106,22 @@ You can also run the application using Docker:
 
 1. Build and start the containers:
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 
 ## Scripts
 
-- `npm run dev` - Start development server with HMR
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run test` - Run tests
-- `npm run lint` - Lint code
-- `npm run format` - Format code
-- `npm run typecheck` - Type check
-- `npm run db:migrate` - Run database migrations
-- `npm run db:seed` - Seed database
-- `npm run db:fresh` - Reset and seed database
+- `pnpm dev` - Start development server with HMR
+- `pnpm build` - Build for production
+- `pnpm start` - Start production server
+- `pnpm test` - Run tests
+- `pnpm lint` - Lint code
+- `pnpm format` - Format code
+- `pnpm typecheck` - Type check
+- `pnpm verify:production-smoke` - Smoke test the built production server using a temporary SQLite database
+- `pnpm db:migrate` - Run additive database migrations
+- `pnpm db:seed` - Seed database; requires initial root credentials
+- `pnpm db:fresh` - Destructively reset and seed the database (development only)
 
 ## Project Structure
 
@@ -111,6 +137,13 @@ You can also run the application using Docker:
 - `resources/` - Views and frontend resources
 - `start/` - Application startup files
 - `tests/` - Test files
+
+## Deployment notes
+
+- The container runs as the unprivileged `node` user and stores local artifacts in the persistent `/app/storage` volume.
+- Configure the database and `APP_KEY` before starting; run `pnpm db:migrate` as a release step before deploying new application code.
+- Set `MAX_UPLOAD_SIZE` to the maximum multipart request size your proxy and temporary disk can support. Uploads are streamed to storage after body parsing.
+- The server does not trust forwarded headers by default. Set `TRUSTED_PROXIES` to the reverse proxy IPs/CIDRs when running behind a proxy.
 
 ## Contributing
 

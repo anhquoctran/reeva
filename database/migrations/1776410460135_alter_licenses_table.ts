@@ -13,7 +13,7 @@ export default class extends BaseSchema {
       table.string('status', 50).notNullable().defaultTo('active')
       table.timestamp('expires_at').nullable()
       table.timestamp('revoked_at').nullable()
-      
+
       table.timestamp('created_at').notNullable().defaultTo(this.now())
       table.timestamp('updated_at').notNullable().defaultTo(this.now())
       table.timestamp('deleted_at').nullable()
