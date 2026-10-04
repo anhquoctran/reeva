@@ -8,10 +8,7 @@ import { Readable } from 'node:stream'
 import type StorageProvider from '#models/storage_provider'
 import StorageManager from '#services/storage/storage_manager'
 import S3CompatibleProvider from '#services/storage/providers/s3_compatible_provider'
-import {
-  normalizeS3CompatibleConfig,
-  s3CompatibleConfigFromEnvironment,
-} from '#services/storage/s3_compatible_config'
+import { normalizeS3CompatibleConfig } from '#services/storage/s3_compatible_config'
 
 async function withTransientNetworkRetry<T>(operation: () => Promise<T>): Promise<T> {
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -44,23 +41,8 @@ async function collect(stream: Readable) {
   return Buffer.concat(chunks)
 }
 
-function setEnvironment(values: Record<string, string>) {
-  const previous = new Map<string, string | undefined>()
-  for (const [key, value] of Object.entries(values)) {
-    previous.set(key, process.env[key])
-    process.env[key] = value
-  }
-
-  return () => {
-    for (const [key, value] of previous) {
-      if (value === undefined) delete process.env[key]
-      else process.env[key] = value
-    }
-  }
-}
-
 test.group('S3-compatible object storage', () => {
-  test('streams SigV4 upload/download/delete through the environment-backed provider', async ({
+  test('streams SigV4 upload/download/delete through a database-backed provider config', async ({
     assert,
   }) => {
     const objectBody = Buffer.from('synthetic OTA artifact contents')
@@ -118,32 +100,42 @@ test.group('S3-compatible object storage', () => {
     if (!address || typeof address === 'string') throw new Error('Expected an ephemeral TCP port.')
     const port = (address as AddressInfo).port
 
-    const restoreEnvironment = setEnvironment({
-      S3_ENDPOINT: `http://127.0.0.1:${port}`,
-      S3_REGION: 'us-east-1',
-      S3_BUCKET: 'reeva-test-bucket',
-      S3_ACCESS_KEY_ID: 'synthetic-access-key',
-      S3_SECRET_ACCESS_KEY: 'synthetic-secret-key',
-      S3_SESSION_TOKEN: 'synthetic-session-token',
-      S3_FORCE_PATH_STYLE: 'auto',
-      S3_MAX_ATTEMPTS: '1',
-      S3_CONNECTION_TIMEOUT_MS: '100',
-      S3_SOCKET_TIMEOUT_MS: '100',
-      S3_DOWNLOAD_URL_TTL_SECONDS: '300',
-    })
-
     try {
-      const config = s3CompatibleConfigFromEnvironment()
+      const config = normalizeS3CompatibleConfig({
+        driver: 's3',
+        endpoint: `http://127.0.0.1:${port}`,
+        region: 'us-east-1',
+        bucket: 'reeva-test-bucket',
+        accessKeyId: 'synthetic-access-key',
+        secretAccessKey: 'synthetic-secret-key',
+        sessionToken: 'synthetic-session-token',
+        forcePathStyle: 'auto',
+        maxAttempts: 1,
+        connectionTimeoutMs: 100,
+        socketTimeoutMs: 100,
+        downloadUrlTtlSeconds: 300,
+      })
       assert.isTrue(config.forcePathStyle)
       assert.equal(config.endpoint, `http://127.0.0.1:${port}`)
       assert.equal(config.connectionTimeoutMs, 100)
       assert.equal(config.socketTimeoutMs, 100)
 
-      // This DB row contains only the source marker; credentials are resolved
-      // at request time and never need to be saved into the provider config.
       const provider = StorageManager.resolve({
         type: 'cloud',
-        config: { driver: 's3', configSource: 'environment' },
+        config: {
+          driver: 's3',
+          endpoint: config.endpoint,
+          region: config.region,
+          bucket: config.bucket,
+          accessKeyId: config.accessKeyId,
+          secretAccessKey: config.secretAccessKey,
+          sessionToken: config.sessionToken,
+          forcePathStyle: config.forcePathStyle,
+          maxAttempts: config.maxAttempts,
+          connectionTimeoutMs: config.connectionTimeoutMs,
+          socketTimeoutMs: config.socketTimeoutMs,
+          downloadUrlTtlSeconds: config.downloadUrlTtlSeconds,
+        },
       } as unknown as StorageProvider)
       const key = 'artifacts/synthetic id/payload.zip'
       await provider.upload(Readable.from([objectBody]), {
@@ -192,7 +184,6 @@ test.group('S3-compatible object storage', () => {
         timeoutError.name === 'TimeoutError' || /timeout|socket hang up/i.test(timeoutError.message)
       )
     } finally {
-      restoreEnvironment()
       server.closeAllConnections()
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve()))

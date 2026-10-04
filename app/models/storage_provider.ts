@@ -3,19 +3,41 @@ import { beforeCreate, column } from '@adonisjs/lucid/orm'
 import { compose } from '@adonisjs/core/helpers'
 import { SoftDeletes } from '#models/mixins/soft_deletes'
 import { randomUUID } from 'node:crypto'
+import {
+  decryptStorageProviderConfig,
+  encryptStorageProviderConfig,
+  isEncryptedStorageProviderConfig,
+} from '#services/storage/storage_provider_config_crypto'
 
 export default class StorageProvider extends compose(StorageProviderSchema, SoftDeletes) {
   static selfAssignPrimaryKey = true
 
   @column({
-    prepare: (value) => (typeof value === 'string' ? value : JSON.stringify(value)),
-    consume: (value) => {
-      if (typeof value !== 'string') return value
-      try {
-        return JSON.parse(value)
-      } catch {
-        return value
+    serializeAs: null,
+    prepare: (value) => {
+      let config = value
+      if (typeof config === 'string') {
+        try {
+          config = JSON.parse(config)
+        } catch {
+          throw new Error('Storage provider config must be a JSON object.')
+        }
       }
+      if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        throw new Error('Storage provider config must be a JSON object.')
+      }
+      if (isEncryptedStorageProviderConfig(config)) return JSON.stringify(config)
+      return JSON.stringify(encryptStorageProviderConfig(config as Record<string, unknown>))
+    },
+    consume: (value) => {
+      let config = value
+      if (typeof config !== 'string') return decryptStorageProviderConfig(config)
+      try {
+        config = JSON.parse(config)
+      } catch {
+        throw new Error('Storage provider config in the database is not valid JSON.')
+      }
+      return decryptStorageProviderConfig(config)
     },
   })
   declare config: Record<string, unknown>

@@ -11,7 +11,9 @@ services:
       target: production
 
     ports:
-      - '${PORT:-8888}:${PORT:-8888}'
+      # HOST_PORT can differ for reverse proxies or isolated smoke tests; the
+      # internal app port remains PORT (8888 by default).
+      - '${HOST_PORT:-${PORT:-8888}}:${PORT:-8888}'
     environment:
       NODE_ENV: production
       PORT: ${PORT:-8888}
@@ -24,7 +26,8 @@ services:
       DB_PASSWORD_FILE: /app/secrets/db_password
       DB_STARTUP_TIMEOUT_SECONDS: ${DB_STARTUP_TIMEOUT_SECONDS:-30}
       DB_SSL: 'false'
-      STORAGE_DRIVER: ${STORAGE_DRIVER:-database}
+      # Temporary compatibility inputs for the one-time migration of old
+      # environment-backed storage records. New installs leave these empty.
       S3_ENDPOINT: ${S3_ENDPOINT:-}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-}

@@ -36,27 +36,37 @@ Direct Node starts use `DB_CONNECTION=pg`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_
    docker compose build app
    docker compose up -d postgres
    docker compose run --rm --no-deps --entrypoint node \
-     -e APP_KEY=temporary-migration-key-012345678901234567890123 \
+     -e APP_KEY="$APP_KEY" \
      app build/ace.js migration:run --force
    ```
 
-   These commands initialize the dedicated volumes/database and migration-created default product only. If normal startup has already seeded tables, provision a separate empty destination/project; the importer deliberately refuses nonempty targets.
+````
+
+ Set `APP_KEY` to the persistent destination key before this command (for
+ example, generate one with `openssl rand -hex 32` and keep it in a secret
+ manager or protected `.env`). The application will use the same key to encrypt
+ imported storage provider settings; do not use a one-time placeholder.
+
+ These commands initialize the dedicated volumes/database and migration-created default product only. If normal startup has already seeded tables, provision a separate empty destination/project; the importer deliberately refuses nonempty targets.
 
 4. Validate, then import the securely stored export:
 
-   ```sh
-   docker compose run --rm --no-deps --entrypoint node \
-     -v /absolute/secure/export.json:/import/export.json:ro \
-     app scripts/import_legacy_data.mjs --file /import/export.json --empty-target --dry-run
-   docker compose run --rm --no-deps --entrypoint node \
-     -v /absolute/secure/export.json:/import/export.json:ro \
-     app scripts/import_legacy_data.mjs --file /import/export.json --empty-target
-   ```
+ ```sh
+ docker compose run --rm --no-deps -e APP_KEY="$APP_KEY" --entrypoint node \
+   -v /absolute/secure/export.json:/import/export.json:ro \
+   app scripts/import_legacy_data.mjs --file /import/export.json --empty-target --dry-run
+ docker compose run --rm --no-deps -e APP_KEY="$APP_KEY" --entrypoint node \
+   -v /absolute/secure/export.json:/import/export.json:ro \
+   app scripts/import_legacy_data.mjs --file /import/export.json --empty-target
+````
 
-   The importer locks destination tables, validates empty-target state, inserts in dependency order, validates counts and commits in one transaction. Dry-run executes the same inserts/constraints and rolls everything back. Any FK/UUID/uniqueness/format failure rolls back all imported rows. Migration records on the destination are retained; source migration records are never copied. Large exports currently load into memory and insert rows sequentially: schedule an offline maintenance window and validate duration against your data volume.
+The importer locks destination tables, validates empty-target state, inserts in dependency order, validates counts and commits in one transaction. Dry-run executes the same inserts/constraints and rolls everything back. Any FK/UUID/uniqueness/format failure rolls back all imported rows. Migration records on the destination are retained; source migration records are never copied. Large exports currently load into memory and insert rows sequentially: schedule an offline maintenance window and validate duration against your data volume.
 
 5. Preserve artifact storage paths/objects. S3 bucket, keys and credentials must still refer to the same objects. Local provider roots must point to the mounted destination path (normally `/app/storage/uploads`); deliberately adjust a legacy absolute root in the export before import if necessary. Existing non-UUID legacy identifiers require an explicit consistent ID/FK mapping before export; the importer refuses incompatible identifiers rather than guessing. Expired upload reservations should be reconciled against the source storage before copying so imported cleanup does not delete an object you intend to retain.
 6. Start `docker compose up -d --build`; verify login, product/version counts, representative public downloads and their checksum/size, then switch traffic. Imported users must log in again; passwords themselves are preserved. No source database in this workspace was imported as part of the refactor.
+
+Storage provider config and its S3-compatible credentials are encrypted during
+import with `APP_KEY`; app instances must use the same persistent key.
 
 For an external PostgreSQL destination, pass `DB_*` variables explicitly and use `pnpm db:import --file /secure/export.json --empty-target --dry-run`. The CLI intentionally does not load `.env`. Remove `--dry-run` only after reviewing the result.
 
@@ -64,10 +74,18 @@ For an external PostgreSQL destination, pass `DB_*` variables explicitly and use
 
 Migration filenames/IDs remain stable. Two historical schema statements were repaired because a fresh PostgreSQL install could never complete: the users trigger now executes after table creation and remember-me token user IDs use UUID foreign keys. The obsolete MySQL prefix-index branch was removed; the software rollback HAVING expression now works on PostgreSQL.
 
-New migration `1777200000000_postgresql_release_invariants` adds a single default-product index, requires a default product to be active, allows a soft-deleted storage default to be replaced indexes live download activity and creates the Adonis database session table. Cookie sessions remain the default; `SESSION_DRIVER=database` is also supported and smoke-tested. Concurrent default selection uses transaction-scoped PostgreSQL advisory locks shared by services and storage seeding.
+New migration `1777200000000_postgresql_release_invariants` adds a single default-product index, requires a default product to be active, allows a soft-deleted storage default to be replaced, indexes live download activity, and creates the Adonis database session table. Cookie sessions remain the default; `SESSION_DRIVER=database` is also supported and smoke-tested. Concurrent default selection uses transaction-scoped PostgreSQL advisory locks shared by services and storage seeding.
+
+Migration `1777300000000_encrypt_storage_provider_configs` encrypts existing
+provider JSON using the stable `APP_KEY`. If the database still has an
+environment-backed S3 provider, keep its complete legacy `S3_*` configuration
+available for that upgrade only; after it succeeds, remove those variables and
+manage the provider in **CMS → Storage**. All instances sharing the database
+must use the same persistent `APP_KEY`. Rolling this migration down decrypts
+provider JSON for the previous application format.
 
 Back up before an upgrade. Invalid existing defaults may cause the new constraints to refuse migration; review/fix those rows deliberately before retrying. Rollback from multi-software to the old global version constraint refuses duplicate semantic versions across products without dropping rows. Rolling back the latest storage index can also refuse when a deleted and live default coexist under the older stricter predicate. Resolve those invariants explicitly or restore a backup; do not remove data to force rollback. Source-backend recovery is a separate operation: stop target writes and restore source traffic from its retained backup, accounting for any writes made after cutover.
 
 ## Verification
 
-`pnpm test`, `pnpm verify:migration-upgrade`, `pnpm verify:legacy-import` and `pnpm verify:s3-env` each use generated `reeva_test_*` databases. By default they start/remove a disposable PostgreSQL container. CI may provide explicit `REEVA_TEST_PG_*` credentials to a disposable server with database-creation privileges. Neither mode reads application `.env` database credentials.
+`pnpm test`, `pnpm verify:migration-upgrade`, `pnpm verify:legacy-import`, and `pnpm verify:storage-config` each use generated `reeva_test_*` databases. By default they start/remove a disposable PostgreSQL container. CI may provide explicit `REEVA_TEST_PG_*` credentials to a disposable server with database-creation privileges. Neither mode reads application `.env` database credentials.

@@ -3,8 +3,10 @@ import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { createTestDatabase } from './postgres_test_helpers.mjs'
 import { importLegacyData } from './legacy_data_import.mjs'
+import { createStorageConfigEncryptor } from './storage_provider_config_crypto.mjs'
 
 const database = await createTestDatabase('import')
+const storageConfigEncryptor = createStorageConfigEncryptor(database.env.APP_KEY)
 try {
   const migration = spawnSync(process.execPath, ['ace', 'migration:run', '--no-schema-generate'], {
     env: database.env,
@@ -72,13 +74,21 @@ try {
     },
   }
   const baseline = (await database.client.query('SELECT id FROM software')).rows[0].id
-  const dryRun = await importLegacyData(database.client, document, { dryRun: true })
+  const dryRun = await importLegacyData(database.client, document, {
+    dryRun: true,
+    encryptStorageConfig: storageConfigEncryptor.encrypt,
+  })
   assert.equal(dryRun.counts.artifacts, 1)
   assert.equal((await database.client.query('SELECT id FROM software')).rows[0].id, baseline)
   assert.equal((await database.client.query('SELECT count(*) FROM users')).rows[0].count, '0')
   const invalid = structuredClone(document)
   invalid.tables.artifacts[0].architecture_id = randomUUID()
-  await assert.rejects(importLegacyData(database.client, invalid), { code: '23503' })
+  await assert.rejects(
+    importLegacyData(database.client, invalid, {
+      encryptStorageConfig: storageConfigEncryptor.encrypt,
+    }),
+    { code: '23503' }
+  )
   assert.equal((await database.client.query('SELECT count(*) FROM users')).rows[0].count, '0')
   assert.equal((await database.client.query('SELECT id FROM software')).rows[0].id, baseline)
   const multiSoftware = structuredClone(document)
@@ -95,7 +105,16 @@ try {
     patch: 3,
     is_active: 1,
   })
-  await importLegacyData(database.client, multiSoftware)
+  await importLegacyData(database.client, multiSoftware, {
+    encryptStorageConfig: storageConfigEncryptor.encrypt,
+  })
+  const importedProvider = (await database.client.query('SELECT config FROM storage_providers'))
+    .rows[0]
+  assert.notEqual(importedProvider.config.__reevaStorageProviderConfig, undefined)
+  assert.deepEqual(storageConfigEncryptor.decrypt(importedProvider.config), {
+    driver: 'local',
+    root: '/preserved/artifacts',
+  })
   const artifact = (await database.client.query('SELECT * FROM artifacts')).rows[0]
   assert.equal(artifact.id, ids.artifact)
   assert.equal(artifact.storage_key, 'original/path.zip')
@@ -116,7 +135,12 @@ try {
     '0'
   )
   assert.equal((await database.client.query('SELECT count(*) FROM versions')).rows[0].count, '2')
-  await assert.rejects(importLegacyData(database.client, multiSoftware), /not empty/)
+  await assert.rejects(
+    importLegacyData(database.client, multiSoftware, {
+      encryptStorageConfig: storageConfigEncryptor.encrypt,
+    }),
+    /not empty/
+  )
   assert.equal((await database.client.query('SELECT count(*) FROM versions')).rows[0].count, '2')
   console.log(
     'Legacy import passed: dry-run rollback, FK failure rollback, nonempty-target refusal, UUID/JSONB/boolean/bigint conversion, multi-software IDs/checksums/keys preserved, sessions and tokens invalidated.'

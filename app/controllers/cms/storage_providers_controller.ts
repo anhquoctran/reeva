@@ -68,18 +68,52 @@ export default class StorageProvidersController {
 
   async edit({ params, view }: HttpContext) {
     const provider = await this.storageProviderService.getProvider(params.id)
-    return view.render('pages/cms/storage/edit', { provider })
+    return view.render('pages/cms/storage/edit', {
+      provider: this.storageProviderService.getProviderEditView(provider),
+    })
+  }
+
+  async create({ view }: HttpContext) {
+    return view.render('pages/cms/storage/create')
+  }
+
+  async store({ request, response, session }: HttpContext) {
+    try {
+      await this.storageProviderService.createProvider(request.all())
+      session.flash(
+        'success',
+        'Storage provider created. Activate it when you are ready to use it.'
+      )
+      return response.redirect().toRoute('cms.storage.index')
+    } catch (error: unknown) {
+      const code = typeof error === 'object' && error && 'code' in error ? error.code : undefined
+      session.flash(
+        'error',
+        code
+          ? 'Could not save the storage provider. Check its settings and try again.'
+          : error instanceof Error
+            ? error.message
+            : 'Could not save the storage provider.'
+      )
+      return response.redirect().back()
+    }
   }
 
   async update({ params, request, response, session }: HttpContext) {
-    const { name, config, quotaGb } = request.all()
-
     try {
-      await this.storageProviderService.updateProvider(params.id, name, config, quotaGb)
+      await this.storageProviderService.updateProvider(params.id, request.all())
       session.flash('success', 'Storage provider configuration updated.')
       return response.redirect().toRoute('cms.storage.index')
-    } catch (error: any) {
-      session.flash('error', error.message)
+    } catch (error: unknown) {
+      const code = typeof error === 'object' && error && 'code' in error ? error.code : undefined
+      session.flash(
+        'error',
+        code
+          ? 'Could not update the storage provider. Check its settings and try again.'
+          : error instanceof Error
+            ? error.message
+            : 'Could not update the storage provider.'
+      )
       return response.redirect().back()
     }
   }

@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import pg from 'pg'
 import { importLegacyData } from './legacy_data_import.mjs'
+import { createStorageConfigEncryptor } from './storage_provider_config_crypto.mjs'
 
 const args = process.argv.slice(2)
 const file = args[args.indexOf('--file') + 1]
@@ -17,6 +18,11 @@ if (
 ) {
   throw new Error(
     'Set PostgreSQL DB_HOST, DB_USER, DB_DATABASE and optional DB_CONNECTION=pg explicitly. No .env file is loaded by this importer.'
+  )
+}
+if (!process.env.APP_KEY) {
+  throw new Error(
+    'Set APP_KEY to the same persistent key used by Reeva to encrypt imported storage configuration.'
   )
 }
 if (process.env.DB_SSL && !['true', 'false'].includes(process.env.DB_SSL))
@@ -47,8 +53,12 @@ const client = new pg.Client({
 })
 try {
   const document = JSON.parse(await readFile(file, 'utf8'))
+  const encryptor = createStorageConfigEncryptor(process.env.APP_KEY)
   await client.connect()
-  const result = await importLegacyData(client, document, { dryRun: args.includes('--dry-run') })
+  const result = await importLegacyData(client, document, {
+    dryRun: args.includes('--dry-run'),
+    encryptStorageConfig: (config) => encryptor.encrypt(config),
+  })
   console.log(JSON.stringify(result, null, 2))
 } catch (error) {
   // PostgreSQL error details can contain exported secrets; output only codes/constraints.

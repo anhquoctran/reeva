@@ -133,6 +133,10 @@ router
 
             router.get('/storage', [StorageProvidersController, 'index']).as('cms.storage.index')
             router
+              .get('/storage/create', [StorageProvidersController, 'create'])
+              .as('cms.storage.create')
+            router.post('/storage', [StorageProvidersController, 'store']).as('cms.storage.store')
+            router
               .post('/storage/:id/activate', [StorageProvidersController, 'activate'])
               .as('cms.storage.activate')
             router

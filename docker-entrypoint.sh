@@ -41,4 +41,12 @@ node build/ace.js migration:run --force
 echo '[startup] Seeding base data...'
 node build/ace.js db:seed
 
+# The legacy S3 values are needed only while an old environment-backed row is
+# migrated into encrypted PostgreSQL configuration. The application process
+# resolves storage settings from PostgreSQL only.
+unset S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY
+unset S3_SESSION_TOKEN S3_FORCE_PATH_STYLE S3_MAX_ATTEMPTS
+unset S3_CONNECTION_TIMEOUT_MS S3_SOCKET_TIMEOUT_MS S3_DOWNLOAD_URL_TTL_SECONDS
+unset STORAGE_DRIVER
+
 exec "$@"

@@ -20,7 +20,7 @@ function ace(...args) {
 try {
   ace('migration:run')
   const { rows: migrations } = await client.query('SELECT name FROM adonis_schema ORDER BY name')
-  assert.equal(migrations.length, 28)
+  assert.equal(migrations.length, 29)
   for (const [name, batch] of [
     [auth, 2],
     [software, 3],
@@ -124,9 +124,9 @@ try {
   await client.query('DELETE FROM software WHERE id=$1', [otherProduct])
   ace('migration:reset')
   ace('migration:run')
-  assert.equal((await client.query('SELECT count(*) FROM adonis_schema')).rows[0].count, '28')
+  assert.equal((await client.query('SELECT count(*) FROM adonis_schema')).rows[0].count, '29')
   console.log(
-    'PostgreSQL migrations passed: fresh 28 migrations, additive rollback/seeded upgrade, UUID FK, preserved user/version, token revocation, duplicate-semver rollback guard, full reset/reapply on disposable DB.'
+    'PostgreSQL migrations passed: fresh 29 migrations, additive rollback/seeded upgrade, UUID FK, preserved user/version, token revocation, duplicate-semver rollback guard, full reset/reapply on disposable DB.'
   )
 } finally {
   await database.close()

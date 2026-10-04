@@ -24,7 +24,11 @@ const skipped = [
 ]
 
 /** Import only into an empty, migrated target; all data changes are transactional. */
-export async function importLegacyData(client, document, { dryRun = false } = {}) {
+export async function importLegacyData(
+  client,
+  document,
+  { dryRun = false, encryptStorageConfig } = {}
+) {
   if (
     document.formatVersion !== 1 ||
     !document.tables ||
@@ -100,6 +104,12 @@ export async function importLegacyData(client, document, { dryRun = false } = {}
           }
           if (columns.get(column) === 'jsonb' && typeof value === 'string')
             row[column] = JSON.parse(value)
+          if (table === 'storage_providers' && column === 'config') {
+            if (typeof encryptStorageConfig !== 'function') {
+              throw new Error('An APP_KEY-backed storage config encryptor is required for import.')
+            }
+            row[column] = encryptStorageConfig(row[column])
+          }
           if (
             columns.get(column) === 'bigint' &&
             typeof value === 'number' &&

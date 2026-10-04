@@ -1,10 +1,7 @@
 import type StorageProvider from '#models/storage_provider'
 import LocalProvider from './providers/local_provider.js'
 import S3CompatibleProvider from './providers/s3_compatible_provider.js'
-import {
-  normalizeS3CompatibleConfig,
-  s3CompatibleConfigFromEnvironment,
-} from './s3_compatible_config.js'
+import { normalizeS3CompatibleConfig } from './s3_compatible_config.js'
 import type { BaseStorageProvider } from '#services/storage/base_storage_provider'
 
 const S3_DRIVERS = new Set(['s3', 'minio', 'seaweedfs', 'oci', 'r2'])
@@ -33,10 +30,7 @@ export default class StorageManager {
     }
 
     if (S3_DRIVERS.has(driverName)) {
-      const s3Config =
-        config.configSource === 'environment'
-          ? s3CompatibleConfigFromEnvironment()
-          : normalizeS3CompatibleConfig(config, driverName)
+      const s3Config = normalizeS3CompatibleConfig(config, driverName)
       return new S3CompatibleProvider(s3Config)
     }
 

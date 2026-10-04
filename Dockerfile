@@ -40,7 +40,7 @@ COPY --from=build /app/package.json /app/package.json
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 COPY scripts/check_database_connection.mjs /app/scripts/check_database_connection.mjs
 COPY scripts/init_database_secret.mjs /app/scripts/init_database_secret.mjs
-COPY scripts/import_legacy_data.mjs scripts/legacy_data_import.mjs /app/scripts/
+COPY scripts/import_legacy_data.mjs scripts/legacy_data_import.mjs scripts/storage_provider_config_crypto.mjs /app/scripts/
 RUN mkdir -p /app/storage/uploads /app/secrets /app/admin-secrets && chown -R node:node /app/storage /app/secrets /app/admin-secrets
 USER node
 

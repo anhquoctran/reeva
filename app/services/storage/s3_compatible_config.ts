@@ -150,26 +150,3 @@ export function normalizeS3CompatibleConfig(input: unknown, driver = 's3'): S3Co
     downloadUrlTtlSeconds,
   }
 }
-
-/** Read the single environment-backed S3-compatible storage configuration. */
-export function s3CompatibleConfigFromEnvironment(
-  environment: NodeJS.ProcessEnv = process.env
-): S3CompatibleConfig {
-  const forcePathStyle = environment.S3_FORCE_PATH_STYLE || 'auto'
-  return normalizeS3CompatibleConfig(
-    {
-      bucket: environment.S3_BUCKET,
-      region: environment.S3_REGION,
-      endpoint: environment.S3_ENDPOINT,
-      accessKeyId: environment.S3_ACCESS_KEY_ID,
-      secretAccessKey: environment.S3_SECRET_ACCESS_KEY,
-      sessionToken: environment.S3_SESSION_TOKEN,
-      forcePathStyle,
-      maxAttempts: environment.S3_MAX_ATTEMPTS,
-      connectionTimeoutMs: environment.S3_CONNECTION_TIMEOUT_MS,
-      socketTimeoutMs: environment.S3_SOCKET_TIMEOUT_MS,
-      downloadUrlTtlSeconds: environment.S3_DOWNLOAD_URL_TTL_SECONDS,
-    },
-    's3'
-  )
-}

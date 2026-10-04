@@ -107,7 +107,6 @@ export async function createTestDatabase(label = 'check') {
         SMTP_PORT: '1025',
         ADMIN_EMAIL: '',
         ADMIN_PASSWORD: '',
-        STORAGE_DRIVER: 'database',
       },
       close,
     }

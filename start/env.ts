@@ -41,8 +41,8 @@ const env = await Env.create(new URL('../', import.meta.url), {
   DB_SSL_CA_PATH: Env.schema.string.optional(),
   DB_DATABASE: Env.schema.string.optional(),
 
-  // Storage stays CMS/DB managed unless an environment-backed S3 provider is selected.
-  STORAGE_DRIVER: Env.schema.string.optional(),
+  // Deprecated S3_* values are read only by the one-time migration from legacy
+  // environment-backed provider records. New provider configuration is DB managed.
   S3_ENDPOINT: Env.schema.string.optional(),
   S3_REGION: Env.schema.string.optional(),
   S3_BUCKET: Env.schema.string.optional(),
@@ -82,14 +82,28 @@ if (configuredPort === undefined) {
   throw new Error('PORT must be an integer between 1 and 65535.')
 }
 
-const configuredStorageDriver = env.get('STORAGE_DRIVER')
-if (configuredStorageDriver && !['database', 's3'].includes(configuredStorageDriver)) {
-  throw new Error('STORAGE_DRIVER must be either database or s3.')
-}
-
 const configuredS3PathStyle = env.get('S3_FORCE_PATH_STYLE')
 if (configuredS3PathStyle && !['auto', 'true', 'false'].includes(configuredS3PathStyle)) {
   throw new Error('S3_FORCE_PATH_STYLE must be auto, true, or false.')
+}
+
+// Only the additive legacy migration reads these. Keep them out of the long-
+// running server's inherited process environment after Env has captured them.
+for (const key of [
+  'S3_ENDPOINT',
+  'S3_REGION',
+  'S3_BUCKET',
+  'S3_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
+  'S3_SESSION_TOKEN',
+  'S3_FORCE_PATH_STYLE',
+  'S3_MAX_ATTEMPTS',
+  'S3_CONNECTION_TIMEOUT_MS',
+  'S3_SOCKET_TIMEOUT_MS',
+  'S3_DOWNLOAD_URL_TTL_SECONDS',
+  'STORAGE_DRIVER',
+]) {
+  delete process.env[key]
 }
 
 export default env

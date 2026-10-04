@@ -61,8 +61,10 @@ pnpm dev
 ```
 
 The default HTTP port is `8888` for development, production, PM2, Docker, and
-Docker Compose. Set `PORT` to override it; Docker Compose publishes the same
-port on the host and in the container.
+Docker Compose. Set `PORT` to override the app/container port and its default
+host mapping. For Compose only, `HOST_PORT` can override the host-side port
+without changing the app's internal port. When it differs from the public URL,
+set `APP_URL` to that URL as well (for password-reset links and generated URLs).
 
 ## Building
 
@@ -101,9 +103,11 @@ Compose uses `POSTGRES_USER` and `POSTGRES_DB` (both default to `reeva`). Leave 
 **Existing SQLite/MySQL data is not automatically transferred.** Existing storage volumes and source databases are preserved. Stop writes, back up the source, and follow [the PostgreSQL migration guide](docs/postgresql.md) before starting normal seeding on the destination. An empty PostgreSQL database is a new installation, not a migration of your previous releases.
 
 To use AWS S3 or an S3-compatible service such as MinIO, SeaweedFS, OCI Object
-Storage, or Cloudflare R2, set `STORAGE_DRIVER=s3` and the `S3_*` variables in
-`.env`. The bucket must already exist. See [S3-compatible object storage](docs/object-storage.md)
-for provider examples and the compatibility boundary.
+Storage, or Cloudflare R2, add and configure it at **CMS → Storage**. Provider
+settings are encrypted in PostgreSQL and can be activated at runtime without
+restarting the app. The bucket must already exist. See
+[object storage](docs/object-storage.md) for provider examples, upgrade notes,
+and the compatibility boundary.
 
 Check startup with `docker compose ps` and view application logs with `docker compose logs -f app`.
 
@@ -144,7 +148,7 @@ pnpm test
 - `pnpm format` - Format code
 - `pnpm typecheck` - Type check
 - `pnpm verify:production-smoke` - Smoke test the isolated production build with a disposable PostgreSQL database
-- `pnpm verify:docker-compose` - Verify a fresh isolated Compose startup, health, restricted DB role and restart persistence (requires port 8888 to be free)
+- `pnpm verify:docker-compose` - Verify a fresh isolated Compose startup, health, restricted DB role and restart persistence (uses an ephemeral host port)
 - `pnpm verify:migration-upgrade` - Verify PostgreSQL fresh/upgrade/rollback paths
 - `pnpm verify:legacy-import` - Verify atomic legacy imports and safety guards
 - `pnpm db:import --file /secure/export.json --empty-target --dry-run` - Validate a legacy export against an empty migrated PostgreSQL target

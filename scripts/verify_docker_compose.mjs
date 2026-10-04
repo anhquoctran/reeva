@@ -11,7 +11,12 @@ const listing = spawnSync('git', ['ls-files', '-co', '--exclude-standard', '-z']
 assert.equal(listing.status, 0, 'Run from the repository root.')
 const directory = await mkdtemp(join(tmpdir(), 'reeva-pg-compose-'))
 const project = directory.split('/').at(-1).toLowerCase()
-const env = { PATH: process.env.PATH, HOME: process.env.HOME, COMPOSE_PROJECT_NAME: project }
+const env = {
+  PATH: process.env.PATH,
+  HOME: process.env.HOME,
+  COMPOSE_PROJECT_NAME: project,
+  HOST_PORT: '0',
+}
 // Docker Desktop/remote engine selection is retained, application secrets are not.
 for (const key of [
   'DOCKER_HOST',
@@ -84,11 +89,21 @@ try {
   }
   compose(['up', '-d', '--build'], { inherit: true })
   await ready()
+  const publishedAddress = compose(['port', 'app', '8888'])
+  const publishedPort = Number(publishedAddress.slice(publishedAddress.lastIndexOf(':') + 1))
+  assert.ok(
+    Number.isInteger(publishedPort) && publishedPort > 0,
+    'Compose must publish a host port.'
+  )
   assert.equal(
-    (await fetch('http://127.0.0.1:8888/login', { signal: AbortSignal.timeout(5000) })).status,
+    (
+      await fetch(`http://127.0.0.1:${publishedPort}/login`, {
+        signal: AbortSignal.timeout(5000),
+      })
+    ).status,
     200
   )
-  assert.equal(sql('SELECT count(*) FROM adonis_schema'), '28')
+  assert.equal(sql('SELECT count(*) FROM adonis_schema'), '29')
   assert.equal(
     sql(
       "SELECT rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls FROM pg_roles WHERE rolname='reeva'"
@@ -120,7 +135,7 @@ try {
   )
   assert.equal(sql("SELECT value FROM settings WHERE key='compose_test_persistence'"), 'retained')
   console.log(
-    'Compose passed: exact one-command startup/default 8888, healthy PostgreSQL/app, 28 migrations, nonsuperuser role, persistent data/key/password, legacy DB overrides ignored.'
+    `Compose passed: one-command startup/default container port 8888 (temporary host port ${publishedPort}), healthy PostgreSQL/app, 29 migrations, nonsuperuser role, persistent data/key/password, legacy DB overrides ignored.`
   )
 } finally {
   // Only this script's randomly named synthetic project is removed.

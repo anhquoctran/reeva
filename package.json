@@ -21,7 +21,7 @@
     "db:fresh": "node ace migration:fresh && node ace db:seed",
     "verify:migration-upgrade": "node scripts/verify_migration_postgres.mjs",
     "verify:production-smoke": "node scripts/verify_production_runtime.mjs",
-    "verify:s3-env": "node scripts/verify_s3_env_provider.mjs",
+    "verify:storage-config": "node scripts/verify_storage_provider_config.mjs && node scripts/run_tests.mjs --files=tests/unit/storage_provider_config.spec.ts",
     "benchmark:s3": "node scripts/benchmark_s3_storage.mjs",
     "benchmark:ota": "node scripts/benchmark_ota.mjs",
     "db:import": "node scripts/import_legacy_data.mjs",
