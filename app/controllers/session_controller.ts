@@ -74,6 +74,14 @@ export default class SessionController {
 
   /** Handle the password reset request */
   async sendResetLink({ request, session, response, incomingIp }: HttpContext) {
+    if (!this.authService.isMailEnabled()) {
+      session.flash(
+        'error',
+        'Password reset email delivery is temporarily disabled. Contact your administrator.'
+      )
+      return response.redirect().back()
+    }
+
     const email = request.input('email')
     const identity = typeof email === 'string' ? email : ''
 

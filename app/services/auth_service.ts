@@ -6,12 +6,19 @@ import { randomBytes } from 'node:crypto'
 import { createHash } from 'node:crypto'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
+import env from '#start/env'
 
 @inject()
 export default class AuthService {
   constructor(protected userRepository: UserRepository) {}
 
+  isMailEnabled() {
+    return env.get('MAIL_ENABLED') ?? true
+  }
+
   async sendPasswordResetLink(email: string) {
+    if (!this.isMailEnabled()) return
+
     const user = await this.userRepository.findByEmail(email.trim())
 
     if (user?.isActive) {
