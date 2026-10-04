@@ -182,11 +182,11 @@ pnpm test
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting
-5. Submit a pull request
+Contributions use short-lived topic branches and pull requests into `master`.
+Use a standard branch prefix and Conventional Commit title, then wait for
+review and the `verify` CI check before squash-merging. See the
+[Git strategy and contribution flow](docs/git-workflow.md) for branch prefixes,
+release tags, hotfixes, and repository rules.
 
 ## License
 

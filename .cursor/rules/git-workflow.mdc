@@ -1,0 +1,9 @@
+---
+description: Follow Reeva's protected-branch and pull-request workflow for all Git operations
+alwaysApply: true
+---
+
+Before any branch, rebase, cherry-pick, commit, PR, release, or push operation,
+follow the root `AGENTS.md` and `docs/git-workflow.md`. `master` is PR-only:
+never push directly, rewrite it, or bypass branch protection. Preserve existing
+user changes and require review plus the `verify` check before squash merge.
