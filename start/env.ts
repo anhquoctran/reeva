@@ -61,6 +61,7 @@ const env = await Env.create(new URL('../', import.meta.url), {
   |----------------------------------------------------------
   */
   MAIL_MAILER: Env.schema.enum(['smtp'] as const),
+  MAIL_ENABLED: Env.schema.boolean.optional(),
   MAIL_FROM_NAME: Env.schema.string(),
   MAIL_FROM_ADDRESS: Env.schema.string(),
   SMTP_HOST: Env.schema.string(),

@@ -98,6 +98,8 @@ Compose starts **PostgreSQL 17** on a private network, generates and persists ra
 
 Set both `ADMIN_EMAIL` and `ADMIN_PASSWORD` (at least 16 characters) in `.env` before starting to create the initial root account. Without them, CMS login remains unprovisioned; there is no shared administrator password. Configure SMTP for password reset email delivery.
 
+Set `MAIL_ENABLED=false` in `.env` to temporarily disable password reset email delivery. Recreate the app container with `docker compose up -d --no-deps app` to apply the setting; rebuilding the image is not required. Set it back to `true` to re-enable email.
+
 Compose uses `POSTGRES_USER` and `POSTGRES_DB` (both default to `reeva`). Leave `POSTGRES_PASSWORD` blank to generate a random persistent password. Keep these settings stable after the first start: changing credentials requires coordinated database role and secret rotation. Direct-start `DB_*` settings, including legacy `DB_CONNECTION=mysql`, do not override Compose's managed PostgreSQL connection. Startup validates connectivity and authentication before migrations and reports safe error codes.
 
 **Existing SQLite/MySQL data is not automatically transferred.** Existing storage volumes and source databases are preserved. Stop writes, back up the source, and follow [the PostgreSQL migration guide](docs/postgresql.md) before starting normal seeding on the destination. An empty PostgreSQL database is a new installation, not a migration of your previous releases.

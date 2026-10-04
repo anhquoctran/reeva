@@ -9,7 +9,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-The app listens at `http://localhost:8888`. Compose provisions a dedicated application role/database, waits for PostgreSQL, authenticates, runs migrations and seeds idempotently. Set `ADMIN_EMAIL`/`ADMIN_PASSWORD` in `.env` to provision the first root user. SMTP requires separate configuration.
+The app listens at `http://localhost:8888`. Compose provisions a dedicated application role/database, waits for PostgreSQL, authenticates, runs migrations and seeds idempotently. Set `ADMIN_EMAIL`/`ADMIN_PASSWORD` in `.env` to provision the first root user. SMTP requires separate configuration. Set `MAIL_ENABLED=false` to temporarily disable password reset emails; recreate only the app container to apply the change.
 
 Volumes retain PostgreSQL data (`reeva_postgres`), local objects/application key (`reeva_storage`), application database credentials (`reeva_database_credentials`) and separate administrative credentials (`reeva_postgres_admin`). Back up these along with S3 objects when applicable. PostgreSQL has no published host port; the app role has no superuser, role creation, database creation, replication or RLS bypass privileges.
 

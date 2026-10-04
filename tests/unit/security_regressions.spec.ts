@@ -39,6 +39,7 @@ import SoftwareService from '#services/software_service'
 import StorageProviderService from '#services/storage_provider_service'
 import LocalProvider from '#services/storage/providers/local_provider'
 import UpdaterController from '#controllers/api/updater_controller'
+import SessionController from '#controllers/session_controller'
 import RootMiddleware from '#middleware/root_middleware'
 import RealIpMiddleware from '#middleware/real_ip_middleware'
 import router from '@adonisjs/core/services/router'
@@ -921,6 +922,60 @@ test.group('security and release regressions', (group) => {
       .count('* as total')
       .first()
     assert.equal(Number(storedIdentityKeys?.total), 30)
+  })
+
+  test('disabled email prevents password reset token creation and explains the disabled state', async ({
+    assert,
+  }) => {
+    let repositoryLookups = 0
+    const authService = new AuthService({
+      async findByEmail() {
+        repositoryLookups++
+        throw new Error('User lookup must not run while mail is disabled.')
+      },
+    } as unknown as UserRepository)
+    authService.isMailEnabled = () => false
+    await authService.sendPasswordResetLink('admin@example.test')
+    assert.equal(repositoryLookups, 0)
+
+    let redirectedBack = false
+    let flashKey = ''
+    let flashMessage = ''
+    let sentResetEmail = false
+    const controller = new SessionController({
+      isMailEnabled: () => false,
+      async isAuthRequestThrottled() {
+        throw new Error('Rate-limit lookup should not run while mail is disabled.')
+      },
+      async sendPasswordResetLink() {
+        sentResetEmail = true
+      },
+    } as unknown as AuthService)
+    const context = {
+      request: { input: () => 'admin@example.test' },
+      session: {
+        flash(key: string, message: string) {
+          flashKey = key
+          flashMessage = message
+        },
+      },
+      response: {
+        redirect() {
+          return {
+            back() {
+              redirectedBack = true
+            },
+          }
+        },
+      },
+      incomingIp: '127.0.0.1',
+    } as unknown as HttpContext
+
+    await controller.sendResetLink(context)
+    assert.isTrue(redirectedBack)
+    assert.equal(flashKey, 'error')
+    assert.include(flashMessage, 'temporarily disabled')
+    assert.isFalse(sentResetEmail)
   })
 
   test('API rejects invalid versions, channels, pagination, and IDs before service calls', async ({
