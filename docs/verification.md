@@ -385,3 +385,13 @@ See [signer operations](signer-operations.md) for initialization, separate
 approval, root retirement, seal recovery and production trust boundaries. CI now
 runs Rust formatting/clippy/tests/advisories and full Compose verification; the
 hosted workflow has not run in this local task.
+
+## Docker host port 8797 (2026-10-09)
+
+Compose now defaults to host **8797** mapped to app/container **8888**.
+Its default `APP_URL` follows the host port. The local `.env` host port and
+localhost application URL were updated without changing other settings.
+`docker compose config --format json` confirms published 8797, target 8888,
+and `APP_URL=http://localhost:8797`; `git diff --check` passes. No containers
+were recreated and no runtime tests or benchmarks were rerun for this mapping
+change. Apply it using `docker compose up -d --build`.

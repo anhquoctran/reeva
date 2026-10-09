@@ -15,7 +15,7 @@ services:
     ports:
       # HOST_PORT can differ for reverse proxies or isolated smoke tests; the
       # internal app port remains PORT (8888 by default).
-      - '${HOST_PORT:-${PORT:-8888}}:${PORT:-8888}'
+      - '${HOST_PORT:-8797}:${PORT:-8888}'
     environment:
       NODE_ENV: production
       PORT: ${PORT:-8888}
@@ -43,7 +43,7 @@ services:
       S3_DOWNLOAD_URL_TTL_SECONDS: ${S3_DOWNLOAD_URL_TTL_SECONDS:-3600}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       APP_KEY: ${APP_KEY:-}
-      APP_URL: ${APP_URL:-http://localhost:${PORT:-8888}}
+      APP_URL: ${APP_URL:-http://localhost:${HOST_PORT:-8797}}
       APP_GIT_SHA: ${APP_GIT_SHA:-}
       SESSION_DRIVER: ${SESSION_DRIVER:-cookie}
       MAIL_MAILER: ${MAIL_MAILER:-smtp}
