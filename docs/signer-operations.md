@@ -19,7 +19,8 @@ docker compose run --rm signer-operator provision YOUR_SOFTWARE_SLUG
 ```
 
 The first command starts Reeva, its PostgreSQL, signer, a separate signer
-PostgreSQL, and OpenBao. Reeva remains on port **8888** by default. No signer,
+PostgreSQL, and OpenBao. Reeva is published on host port **8797** by default
+(container port 8888). No signer,
 database, or OpenBao port is published. HTTPS is verified using a generated
 private CA; requester/approver tokens and database passwords are generated into
 role-specific persistent volumes. Keep volume ownership intact.

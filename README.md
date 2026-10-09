@@ -60,11 +60,11 @@ Start the development server with hot module replacement:
 pnpm dev
 ```
 
-The default HTTP port is `8888` for development, production, PM2, Docker, and
-Docker Compose. Set `PORT` to override the app/container port and its default
-host mapping. For Compose only, `HOST_PORT` can override the host-side port
-without changing the app's internal port. When it differs from the public URL,
-set `APP_URL` to that URL as well (for password-reset links and generated URLs).
+The default app port is `8888` for development, production, PM2 and Docker
+containers. Docker Compose publishes it on host port **8797**. Set `PORT` to
+override the internal app port and `HOST_PORT` to override Compose's host port.
+When using an `.env` with Compose, set `APP_URL` to the public URL, for example
+`http://localhost:8797` (for password-reset links and generated URLs).
 
 ## Building
 
@@ -94,7 +94,7 @@ From the repository root, run:
 docker compose up -d --build
 ```
 
-Compose starts **PostgreSQL 17** on a private network, generates and persists random database credentials and an application key, applies pending migrations, seeds base data, and starts Reeva at **http://localhost:8888**. No `.env` file or separate migration command is required. Database data, credentials and local objects have separate persistent named volumes. The application role cannot create roles/databases or act as a superuser. PostgreSQL is not exposed on a host port.
+Compose starts **PostgreSQL 17** on a private network, generates and persists random database credentials and an application key, applies pending migrations, seeds base data, and starts Reeva at **http://localhost:8797**. No `.env` file or separate migration command is required. Database data, credentials and local objects have separate persistent named volumes. The application role cannot create roles/databases or act as a superuser. PostgreSQL is not exposed on a host port.
 
 Set both `ADMIN_EMAIL` and `ADMIN_PASSWORD` (at least 16 characters) in `.env` before starting to create the initial root account. Without them, CMS login remains unprovisioned; there is no shared administrator password. Configure SMTP for password reset email delivery.
 
