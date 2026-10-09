@@ -10,6 +10,7 @@ import UpdaterService, {
 import { attachmentDisposition } from '#services/download_headers'
 import logger from '@adonisjs/core/services/logger'
 import semver from 'semver'
+import { createOtaSignatureEnvelope } from '#services/ota_release_signature_service'
 
 const CHANNELS = new Set(['dev', 'staging', 'beta', 'stable'])
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -91,6 +92,7 @@ export default class UpdaterController {
         sha512: update.checksumSha512,
         sizeBytes: update.sizeBytes,
         publishedAt: update.publishedAt,
+        signedManifest: createOtaSignatureEnvelope(update),
       })
     } catch (error) {
       if (error instanceof UnsupportedReleaseTargetError) {
@@ -157,6 +159,7 @@ export default class UpdaterController {
       checksum: artifact.checksum,
       hasUpdate,
       downloadUrl: getDownloadUrl(artifact.id, params.slug),
+      signedManifest: createOtaSignatureEnvelope(artifact),
     })
   }
 
@@ -200,6 +203,7 @@ export default class UpdaterController {
           checksum: artifact.checksum,
           publishedAt: artifact.publishedAt,
           downloadUrl: getDownloadUrl(artifact.id, params.slug),
+          signedManifest: createOtaSignatureEnvelope(artifact),
         })),
         pagination,
       })

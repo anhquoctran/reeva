@@ -24,6 +24,33 @@ export default class ArtifactRepository {
           .whereNull('eligible_versions.deleted_at')
           .where('eligible_versions.is_active', true)
           .where('eligible_software.is_active', true)
+          .where((signaturePolicy) => {
+            signaturePolicy
+              .where('eligible_software.require_signed_updates', false)
+              .orWhereExists((signingKeyQuery) => {
+                // Bind eligibility to the metadata that was actually verified,
+                // even if an edit raced the signature submission's save.
+                signingKeyQuery
+                  .from('software_signing_keys as eligible_signing_keys')
+                  .whereColumn('eligible_signing_keys.software_id', 'eligible_software.id')
+                  .whereColumn('eligible_signing_keys.key_id', 'artifacts.signature_key_id')
+                  .where('eligible_signing_keys.is_active', true)
+                  .whereNotNull('artifacts.signature')
+                  .whereRaw(`artifacts.signature_manifest = jsonb_build_object(
+                    'schemaVersion', 1,
+                    'software', eligible_software.slug,
+                    'version', concat(eligible_versions.major, '.', eligible_versions.minor, '.', eligible_versions.patch),
+                    'codename', eligible_versions.codename,
+                    'changelog', eligible_versions.changelog,
+                    'channel', artifacts.channel,
+                    'platform', (SELECT name FROM platforms WHERE id = artifacts.platform_id),
+                    'architecture', (SELECT name FROM architectures WHERE id = artifacts.architecture_id),
+                    'fileName', artifacts.file_name,
+                    'sizeBytes', artifacts.size_bytes,
+                    'sha256', artifacts.checksum_sha256
+                  )`)
+              })
+          })
         if (softwareId) query.where('eligible_software.id', softwareId)
       })
       .whereExists((query) => {

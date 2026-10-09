@@ -8,6 +8,7 @@ const { client, env } = database
 const auth = '1777000000000_create_auth_rate_limits_and_upload_reservations'
 const software = '1777100000000_add_software_products'
 const invariants = '1777200000000_postgresql_release_invariants'
+const signatures = '1777400000000_add_ota_release_signatures'
 function ace(...args) {
   const result = spawnSync(process.execPath, ['ace', ...args, '--no-schema-generate'], {
     env,
@@ -20,11 +21,12 @@ function ace(...args) {
 try {
   ace('migration:run')
   const { rows: migrations } = await client.query('SELECT name FROM adonis_schema ORDER BY name')
-  assert.equal(migrations.length, 29)
+  assert.equal(migrations.length, 30)
   for (const [name, batch] of [
     [auth, 2],
     [software, 3],
     [invariants, 4],
+    [signatures, 5],
   ]) {
     const updated = await client.query('UPDATE adonis_schema SET batch=$1 WHERE name LIKE $2', [
       batch,
@@ -71,6 +73,11 @@ try {
   const product = (await client.query("SELECT * FROM software WHERE slug='reeva'")).rows[0]
   assert.equal(product.name, 'Legacy Desktop')
   assert.equal(product.is_default, true)
+  assert.equal(product.require_signed_updates, false)
+  assert.equal(
+    (await client.query('SELECT count(*) FROM software_signing_keys')).rows[0].count,
+    '0'
+  )
   const version = (await client.query('SELECT * FROM versions WHERE id=$1', [versionId])).rows[0]
   assert.equal(version.software_id, product.id)
   assert.deepEqual([version.major, version.minor, version.patch], [7, 8, 9])
@@ -93,6 +100,7 @@ try {
     [auth, 2],
     [software, 3],
     [invariants, 4],
+    [signatures, 5],
   ])
     await client.query('UPDATE adonis_schema SET batch=$1 WHERE name LIKE $2', [batch, `%${name}%`])
   const guarded = spawnSync(
@@ -124,9 +132,9 @@ try {
   await client.query('DELETE FROM software WHERE id=$1', [otherProduct])
   ace('migration:reset')
   ace('migration:run')
-  assert.equal((await client.query('SELECT count(*) FROM adonis_schema')).rows[0].count, '29')
+  assert.equal((await client.query('SELECT count(*) FROM adonis_schema')).rows[0].count, '30')
   console.log(
-    'PostgreSQL migrations passed: fresh 29 migrations, additive rollback/seeded upgrade, UUID FK, preserved user/version, token revocation, duplicate-semver rollback guard, full reset/reapply on disposable DB.'
+    'PostgreSQL migrations passed: fresh 30 migrations, additive rollback/seeded upgrade, optional signing policy, UUID FK, preserved user/version, token revocation, duplicate-semver rollback guard, full reset/reapply on disposable DB.'
   )
 } finally {
   await database.close()

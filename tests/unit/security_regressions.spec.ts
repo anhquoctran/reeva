@@ -2,7 +2,7 @@ import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
-import { createHash, randomBytes, randomUUID, verify } from 'node:crypto'
+import { createHash, generateKeyPairSync, randomBytes, randomUUID, sign, verify } from 'node:crypto'
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -42,6 +42,13 @@ import UpdaterController from '#controllers/api/updater_controller'
 import SessionController from '#controllers/session_controller'
 import RootMiddleware from '#middleware/root_middleware'
 import RealIpMiddleware from '#middleware/real_ip_middleware'
+import SoftwareSigningKey from '#models/software_signing_key'
+import {
+  createOtaReleasePayload,
+  createOtaSignatureEnvelope,
+  verifyOtaReleaseSignature,
+} from '#services/ota_release_signature_service'
+import ManagedSignerService, { managedRequestId } from '#services/managed_signer_service'
 import router from '@adonisjs/core/services/router'
 
 type Fixture = {
@@ -176,6 +183,160 @@ test.group('security and release regressions', (group) => {
     await truncateDatabase?.()
     await Promise.all(tempRoots.map((root) => rm(root, { recursive: true, force: true })))
     tempRoots.length = 0
+  })
+
+  test('signed-only publication verifies exact metadata and public reads exclude revoked keys', async ({
+    assert,
+  }) => {
+    const fixture = await makeFixture()
+    const product = await new SoftwareService(new SoftwareRepository()).create({
+      name: `Signed ${randomUUID()}`,
+    })
+    fixture.version.softwareId = product.id
+    await fixture.version.save()
+    const pair = generateKeyPairSync('ed25519')
+    const publicPem = pair.publicKey.export({ format: 'pem', type: 'spki' }).toString()
+    const key = await new SoftwareService(new SoftwareRepository()).addSigningKey(
+      product.id,
+      publicPem
+    )
+    product.requireSignedUpdates = true
+    await product.save()
+    const artifact = await makeArtifact(fixture, {
+      isPublished: false,
+      checksumSha256: createHash('sha256').update('test').digest('hex'),
+    })
+    const service = makeArtifactService()
+    await assert.rejects(() => service.publishArtifact(artifact.id), /valid release signature/)
+    const data = await service.getEditData(artifact.id)
+    const payload = data.signingPayload!
+    const signature = sign(null, Buffer.from(payload, 'base64url'), pair.privateKey).toString(
+      'base64url'
+    )
+    assert.isTrue(verifyOtaReleaseSignature(payload, signature, publicPem))
+    assert.isFalse(verifyOtaReleaseSignature(payload + '=', signature, publicPem))
+    await service.setArtifactSignature(artifact.id, key.keyId, signature)
+    await service.publishArtifact(artifact.id)
+    const publishedData = await service.getEditData(artifact.id)
+    assert.isNotNull(createOtaSignatureEnvelope(publishedData.artifact))
+    assert.isNotNull(await new ArtifactRepository().findPublicById(artifact.id))
+    assert.notInclude(JSON.stringify(key.serialize()), 'PRIVATE KEY')
+    // Model an edit committed just before a stale verified signature save.
+    // The saved signature snapshot cannot match the new version metadata.
+    const previousCodename = fixture.version.codename
+    fixture.version.codename = 'Changed after verification'
+    await fixture.version.save()
+    assert.isNull(await new ArtifactRepository().findPublicById(artifact.id))
+    const changedData = await service.getEditData(artifact.id)
+    assert.isNull(createOtaSignatureEnvelope(changedData.artifact))
+    assert.isNull(await new ArtifactRepository().findPublicByStorageKey(artifact.storageKey))
+    const changedReleases = await makeUpdaterService().getReleases(
+      fixture.platform.name,
+      fixture.architecture.name,
+      'stable',
+      10,
+      1,
+      product.slug
+    )
+    assert.equal(changedReleases.pagination.total, 0)
+    fixture.version.codename = previousCodename
+    await fixture.version.save()
+    assert.isNotNull(await new ArtifactRepository().findPublicById(artifact.id))
+    const currentKey = await SoftwareSigningKey.findOrFail(key.id)
+    currentKey.isActive = false
+    await currentKey.save()
+    assert.isNull(await new ArtifactRepository().findPublicById(artifact.id))
+    assert.isNull(await new ArtifactRepository().findPublicByStorageKey(artifact.storageKey))
+    const releases = await makeUpdaterService().getReleases(
+      fixture.platform.name,
+      fixture.architecture.name,
+      'stable',
+      10,
+      1,
+      product.slug
+    )
+    assert.equal(releases.pagination.total, 0)
+  })
+
+  test('a signature for stale metadata or another product is rejected', async ({ assert }) => {
+    const fixture = await makeFixture()
+    const pair = generateKeyPairSync('ed25519')
+    const software = await defaultSoftware()
+    const key = await new SoftwareService(new SoftwareRepository()).addSigningKey(
+      software.id,
+      pair.publicKey.export({ format: 'pem', type: 'spki' }).toString()
+    )
+    const artifact = await makeArtifact(fixture, {
+      isPublished: false,
+      checksumSha256: createHash('sha256').update('test').digest('hex'),
+    })
+    const service = makeArtifactService()
+    const loaded = await service.getEditData(artifact.id)
+    const signature = sign(
+      null,
+      Buffer.from(createOtaReleasePayload(loaded.artifact), 'base64url'),
+      pair.privateKey
+    ).toString('base64url')
+    artifact.channel = 'beta'
+    await artifact.save()
+    await assert.rejects(
+      () => service.setArtifactSignature(artifact.id, key.keyId, signature),
+      /verification failed/
+    )
+    const foreign = await new SoftwareService(new SoftwareRepository()).create({
+      name: `Foreign ${randomUUID()}`,
+    })
+    const otherPair = generateKeyPairSync('ed25519')
+    const foreignKey = await new SoftwareService(new SoftwareRepository()).addSigningKey(
+      foreign.id,
+      otherPair.publicKey.export({ format: 'pem', type: 'spki' }).toString()
+    )
+    await assert.rejects(
+      () => service.setArtifactSignature(artifact.id, foreignKey.keyId, signature),
+      /not active for this software/
+    )
+  })
+
+  test('managed signer consumer rejects key substitution and tampered signatures', async ({
+    assert,
+  }) => {
+    const pair = generateKeyPairSync('ed25519')
+    const publicKey = pair.publicKey.export({ format: 'pem', type: 'spki' }).toString()
+    const keyId = createHash('sha256')
+      .update(pair.publicKey.export({ format: 'der', type: 'spki' }))
+      .digest('hex')
+    const client = new ManagedSignerService()
+    const mutable = client as unknown as { call: () => Promise<Record<string, unknown>> }
+    mutable.call = async () => ({
+      product: 'signed-client',
+      publicKey,
+      keyId: 'a'.repeat(64),
+      keyVersion: 1,
+    })
+    await assert.rejects(() => client.getKey('signed-client'), /fingerprint mismatch/)
+    const key = { product: 'signed-client', publicKey, keyId, keyVersion: 1 }
+    const payload = Buffer.from('{"software":"signed-client"}').toString('base64url')
+    const response = {
+      ...key,
+      id: managedRequestId(key.product, keyId, payload),
+      payload,
+      payloadDigest: createHash('sha256').update(Buffer.from(payload, 'base64url')).digest('hex'),
+      status: 'signed',
+      signature: sign(null, Buffer.from(payload, 'base64url'), pair.privateKey).toString(
+        'base64url'
+      ),
+      expiresAt: 1900000000,
+    }
+    mutable.call = async () => response
+    const accepted = await client.getRequest(key, payload)
+    assert.equal(accepted?.signature, response.signature)
+    mutable.call = async () => ({ ...response, signature: 'a'.repeat(86) })
+    await assert.rejects(() => client.getRequest(key, payload), /invalid release signature/)
+    mutable.call = async () => ({
+      ...response,
+      payload: Buffer.from('changed').toString('base64url'),
+    })
+    await assert.rejects(() => client.getRequest(key, payload), /does not match this release/)
   })
 
   test('public eligibility excludes drafts, archived releases, inactive versions, and deleted joins', async ({

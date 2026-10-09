@@ -36,6 +36,12 @@ jobs:
         with:
           version: 11.20.0
       - run: pnpm install --frozen-lockfile
+      - run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt,clippy
+      - run: cargo +1.98.1 fmt --manifest-path signer/Cargo.toml --check
+      - run: cargo +1.98.1 clippy --manifest-path signer/Cargo.toml --locked --all-targets -- -D warnings
+      - run: cargo +1.98.1 test --manifest-path signer/Cargo.toml --locked
+      - run: cargo +1.98.1 install cargo-audit --version 0.22.2 --locked
+      - run: cargo audit --file signer/Cargo.lock
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm verify:dependencies
       - run: pnpm typecheck

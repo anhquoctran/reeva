@@ -4,6 +4,7 @@ import ArtifactRepository from '#repositories/artifact_repository'
 import semver from 'semver'
 import { DateTime } from 'luxon'
 import SoftwareRepository from '#repositories/software_repository'
+import Artifact from '#models/artifact'
 
 @inject()
 export default class VersionService {
@@ -201,17 +202,32 @@ export default class VersionService {
       version.id
     )
 
+    const nextCodename = this.parseCodename(data.codename)
+    const nextChangelog = this.parseChangelog(data.changelogs || data.changelog)
+    const signedMetadataChanged =
+      version.major !== major ||
+      version.minor !== minor ||
+      version.patch !== patch ||
+      version.codename !== nextCodename ||
+      version.changelog !== nextChangelog
+
     version.merge({
       major,
       minor,
       patch,
-      codename: this.parseCodename(data.codename),
-      changelog: this.parseChangelog(data.changelogs || data.changelog),
+      codename: nextCodename,
+      changelog: nextChangelog,
       isActive: data.isActive === 'on' || data.isActive === true,
       releaseDate: this.parseReleaseDate(data.releaseDate),
     })
 
-    return await this.versionRepository.update(version)
+    const updatedVersion = await this.versionRepository.update(version)
+    if (signedMetadataChanged) {
+      await Artifact.query()
+        .where('versionId', version.id)
+        .update({ signature: null, signatureKeyId: null, signatureManifest: null })
+    }
+    return updatedVersion
   }
 
   async toggleVersion(id: string | number) {

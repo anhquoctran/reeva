@@ -113,6 +113,20 @@ and the compatibility boundary.
 
 Check startup with `docker compose ps` and view application logs with `docker compose logs -f app`.
 
+Compose also starts the **Rust OTA signer**, a separate signer PostgreSQL, and
+**OpenBao Transit**. The vault starts sealed/uninitialized; app startup does not
+automatically authorize signing. Initialize it and provision each product key:
+
+```sh
+docker compose run --rm signer-operator init
+docker compose run --rm signer-operator provision YOUR_SOFTWARE_SLUG
+```
+
+Import the managed public key in CMS Software, request a signature from the
+artifact edit page, and approve it outside Reeva using `signer-admin`. See
+[signer operations](docs/signer-operations.md) for independent artifact review,
+root-token retirement, unseal, backups, replicas, and the software-custody limits.
+
 ## Managing multiple software products
 
 Root users can add products at **CMS → Software**. Reeva generates a safe lowercase slug from the product name; duplicate names receive a numeric suffix. The slug is permanent after creation, has its own semantic-version sequence, and identifies the product in OTA API paths. A version belongs to exactly one product; artifacts inherit that product from their version.

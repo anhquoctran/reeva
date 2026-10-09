@@ -2,6 +2,14 @@ import { inject } from '@adonisjs/core'
 import db from '@adonisjs/lucid/services/db'
 import SoftwareRepository from '#repositories/software_repository'
 import Software from '#models/software'
+import SoftwareSigningKey from '#models/software_signing_key'
+import Artifact from '#models/artifact'
+import ManagedSignerService from '#services/managed_signer_service'
+import {
+  createOtaReleasePayload,
+  validateOtaPublicKey,
+  verifyOtaReleaseSignature,
+} from '#services/ota_release_signature_service'
 
 const MAX_SLUG_LENGTH = 80
 
@@ -24,6 +32,21 @@ export default class SoftwareService {
 
   async getAll() {
     return this.softwareRepository.query().orderBy('isDefault', 'desc').orderBy('name', 'asc')
+  }
+
+  async getAllWithSigningKeys(keyword: string = '', page: number = 1) {
+    let q = this.softwareRepository
+      .query()
+      .preload('signingKeys', (query) => query.orderBy('createdAt', 'asc'))
+      .orderBy('isDefault', 'desc')
+      .orderBy('name', 'asc')
+
+    if (keyword) {
+      keyword = keyword.trim().toLowerCase()
+      q = q.whereILike('name', `%${keyword}%`)
+    }
+
+    return await q.paginate(page)
   }
 
   async getDefault() {
@@ -89,6 +112,120 @@ export default class SoftwareService {
     software.name = name
     await software.save()
     return software
+  }
+
+  async addSigningKey(softwareId: string, input: unknown) {
+    const software = await this.softwareRepository.findById(softwareId)
+    const publicKeyPem = typeof input === 'string' ? input.trim() : ''
+    const key = validateOtaPublicKey(publicKeyPem)
+    const existing = await SoftwareSigningKey.query().where('keyId', key.keyId).first()
+
+    if (existing) {
+      if (existing.softwareId !== software.id) {
+        throw new Error('A signing key must be dedicated to one software product.')
+      }
+      if (!existing.isActive) throw new Error('This key was revoked and cannot be reactivated.')
+      throw new Error('This public key is already registered for this software.')
+    }
+
+    return SoftwareSigningKey.create({
+      softwareId: software.id,
+      keyId: key.keyId,
+      publicKey: key.publicKey,
+      isActive: true,
+    })
+  }
+
+  async importManagedSigningKey(softwareId: string) {
+    const software = await this.softwareRepository.findById(softwareId)
+    const key = await new ManagedSignerService().getKey(software.slug)
+    return this.addSigningKey(softwareId, key.publicKey)
+  }
+
+  async setRequireSignedUpdates(softwareId: string, input: unknown) {
+    const software = await this.softwareRepository.findById(softwareId)
+    const required = input === true || input === 'on' || input === 'true' || input === '1'
+
+    if (required) {
+      const keys = await SoftwareSigningKey.query()
+        .where('softwareId', software.id)
+        .where('isActive', true)
+      if (keys.length === 0)
+        throw new Error('Add an active Ed25519 public key before enabling signatures.')
+
+      const artifacts = await Artifact.query()
+        .where('isPublished', true)
+        .where('isArchived', false)
+        .whereHas('version', (query) =>
+          query.where('softwareId', software.id).where('isActive', true)
+        )
+        .preload('version', (query) => query.preload('software'))
+        .preload('platform')
+        .preload('architecture')
+
+      const keysById = new Map(keys.map((key) => [key.keyId, key.publicKey] as const))
+      for (const artifact of artifacts) {
+        const keyId = artifact.signatureKeyId
+        const publicKey = keyId ? keysById.get(keyId) : undefined
+        const payload = createOtaReleasePayload(artifact)
+        if (
+          !artifact.signature ||
+          !publicKey ||
+          !verifyOtaReleaseSignature(payload, artifact.signature, publicKey)
+        ) {
+          throw new Error(
+            `Sign and verify every published release before enabling signed updates. Missing or invalid signature: ${artifact.fileName}.`
+          )
+        }
+      }
+    }
+
+    software.requireSignedUpdates = required
+    await software.save()
+    return software
+  }
+
+  async revokeSigningKey(softwareId: string, keyId: string) {
+    const software = await this.softwareRepository.findById(softwareId)
+    if (!/^[a-f0-9]{64}$/.test(keyId)) throw new Error('Invalid signing key identifier.')
+    const key = await SoftwareSigningKey.query()
+      .where('softwareId', software.id)
+      .where('keyId', keyId)
+      .where('isActive', true)
+      .first()
+    if (!key) throw new Error('Active signing key not found.')
+
+    if (software.requireSignedUpdates) {
+      const activeKeyCount = await SoftwareSigningKey.query()
+        .where('softwareId', software.id)
+        .where('isActive', true)
+        .count('* as total')
+      if (Number(activeKeyCount[0].$extras.total) <= 1) {
+        throw new Error('Register a replacement public key before revoking the last active key.')
+      }
+
+      const usedByPublishedArtifact = await Artifact.query()
+        .where('signatureKeyId', keyId)
+        .where('isPublished', true)
+        .where('isArchived', false)
+        .whereHas('version', (query) =>
+          query.where('softwareId', software.id).where('isActive', true)
+        )
+        .first()
+      if (usedByPublishedArtifact) {
+        throw new Error(
+          'Re-sign or archive published releases with another active key before revoking this key.'
+        )
+      }
+    }
+
+    key.isActive = false
+    await key.save()
+    await Artifact.query()
+      .where('signatureKeyId', keyId)
+      .whereHas('version', (query) => query.where('softwareId', software.id))
+      .update({ signature: null, signatureKeyId: null, signatureManifest: null })
+    return key
   }
 
   async setDefault(id: string) {

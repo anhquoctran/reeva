@@ -151,4 +151,50 @@ export default class ArtifactsController {
       return response.redirect().back()
     }
   }
+
+  async sign({ params, request, response, session }: HttpContext) {
+    try {
+      await this.artifactService.setArtifactSignature(
+        params.id,
+        request.input('keyId'),
+        request.input('signature')
+      )
+      session.flash('success', 'Release signature verified and saved.')
+    } catch (error) {
+      session.flash(
+        'error',
+        error instanceof Error ? error.message : 'Could not verify release signature.'
+      )
+    }
+    return response.redirect().back()
+  }
+
+  async requestManagedSignature({ params, response, session }: HttpContext) {
+    try {
+      const request = await this.artifactService.requestManagedSignature(params.id)
+      session.flash(
+        'success',
+        `Signing request ${request?.id} created. An independent approver must review and sign it outside Reeva.`
+      )
+    } catch (error) {
+      session.flash(
+        'error',
+        error instanceof Error ? error.message : 'Could not request signature.'
+      )
+    }
+    return response.redirect().back()
+  }
+
+  async importManagedSignature({ params, response, session }: HttpContext) {
+    try {
+      await this.artifactService.importManagedSignature(params.id)
+      session.flash(
+        'success',
+        'Approved managed signature verified and saved. The release can now be published.'
+      )
+    } catch (error) {
+      session.flash('error', error instanceof Error ? error.message : 'Could not import signature.')
+    }
+    return response.redirect().back()
+  }
 }

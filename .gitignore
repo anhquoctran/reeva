@@ -9,6 +9,10 @@ tmp/*
 .env.local
 .env.production.local
 .env.development.local
+/reeva-signing-key/
+/reeva-ota-private.pem
+/reeva-ota-public.pem
+/signer/target/
 
 # Frontend assets compiled code
 public/assets

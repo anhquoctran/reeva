@@ -15,6 +15,9 @@ export default class Artifact extends compose(ArtifactSchema, SoftDeletes) {
   @column({ consume: (value) => (value === null ? null : Number(value)) })
   declare sizeBytes: number | null
 
+  @column({ serializeAs: null })
+  declare signatureManifest: Record<string, unknown> | null
+
   @column({ columnName: 'checksum_md5' })
   declare checksumMd5: string | null
 

@@ -46,6 +46,43 @@ Scope: repository source, migrations, views, storage providers and package/build
 
 ## Finding evidence and regression map
 
+### OTA signing follow-up (2026-10-08)
+
+- **R-038 — P1, confirmed; server mitigation implemented, client enforcement
+  outstanding.** The baseline `app/services/updater_service.ts` exposed hashes
+  without an authenticated release manifest. An attacker able to replace both
+  server metadata and binaries could replace the hash as well. Public-key
+  registration and exact Ed25519 manifests now bind software/version/channel,
+  target, hash and size. `app/services/ota_release_signature_service.ts`,
+  `artifact_service.ts` signature submission/publication, and
+  `artifact_repository.ts` public eligibility share the policy. A verified JSONB
+  snapshot must equal current metadata in SQL; stale signature-save races and
+  related version/target renames cannot restore signed-only eligibility. Reeva cannot
+  prove authenticity to a client that ignores the signature or trusts keys
+  obtained from the same compromised server. No client source exists here;
+  pinned-key validation and rollback/freshness protection remain explicit
+  integration conditions. Regression tests reject stale/foreign/revoked keys
+  and unsigned publication under the signed-only policy.
+- **R-039 — P2, confirmed vulnerable dependencies; fixed.** The lock contained
+  `proxy-addr@2.0.7`, `source-map-js@1.2.1`, and `fast-copy@4.0.3` covered by
+  current advisories. Proxy bypass requires a problematic IPv4-mapped IPv6
+  trusted-prefix configuration; the other advisories require malicious source
+  maps or excessively deep copy input. No successful remote exploitation of
+  Reeva was established. Minimum overrides and the lock now resolve 2.0.8,
+  1.2.2 and 4.1.2 respectively. Regression tests exercise proxy-prefix rejection
+  and bounded copy depth; dependency verification passes. Sources:
+  [proxy-addr](https://github.com/advisories/GHSA-jqcg-44mw-7w3h),
+  [source-map-js](https://github.com/advisories/GHSA-68fv-2mgg-jv7q),
+  [fast-copy](https://github.com/advisories/GHSA-jggr-w7fw-pc2j).
+
+The new Rust signer separates requester, approver and vault operator credentials,
+checks the signed provider response independently, and commits audit/result
+before returning a signature. Real OpenBao/PostgreSQL tests cover export denial,
+expiry, retry, DB failure after signing and seal/restart behavior. This does not
+establish absolute key secrecy: host administrators, compromised unsealed
+OpenBao, or a compromised authorized signer remain in the trust boundary. See
+[signer operations](signer-operations.md) for custody and production limits.
+
 Line numbers refer to the reviewed tree. Tests are in `tests/unit/security_regressions.spec.ts` unless a command is named.
 
 | Finding | Code evidence                                                                                                                                                                                                                      | Verification                                                                                                                                                                                                   |
@@ -117,7 +154,7 @@ Line numbers refer to the reviewed tree. Tests are in `tests/unit/security_regre
 - Local path traversal is confirmed; exploitation of a symlink planted by a local OS-level writer is mitigated by canonical resolution but remains subject to filesystem TOCTOU if an attacker can concurrently mutate the storage tree.
 - No client-controlled remote URL is fetched by the OTA API, so SSRF was not identified in the inspected request paths.
 - CSRF is enabled for browser write methods and upload forms include CSRF tokens. CSP is disabled, and a CMS view loads Ace from a CDN; this is a hardening/availability concern rather than a reproduced injection bug.
-- API checksum fields are computed from uploaded bytes. The server does not sign releases or verify signatures on the client; cryptographic OTA authenticity remains a client contract and deployment key-management decision.
+- The audit baseline returned checksums but had no release-signing protocol. This branch adds per-software public-key registration, externally generated Ed25519 manifest signatures, server-side signature checks at signature submission/publication, and signed metadata in OTA responses. Client-side verification remains an integration requirement because no updater client source is present here. Legacy clients that ignore the envelope gain no signature protection, even when the server's signed-only policy is enabled.
 - Quota checks reserve capacity transactionally. A process termination after object write leaves an expiring reservation; the next upload to that provider retries deletion using the reservation UUID. If that provider is never used again or remains unavailable, the object can persist until storage lifecycle/operator cleanup.
 
 ## Access policy applied

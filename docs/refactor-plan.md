@@ -1,5 +1,31 @@
 # Refactor plan and target architecture
 
+## Managed OTA signing on private cloud
+
+- The Rust service in `signer/` handles requests and independent approvals;
+  OpenBao Transit owns Ed25519 private keys. Reeva receives only public metadata
+  and detached signatures, using its requester identity over verified HTTPS.
+- Requester, approver, and vault operator have separate credentials/volume
+  mounts. Reeva cannot approve a release or access OpenBao directly. The approver
+  CLI hashes an independently obtained artifact and binds approval to the exact
+  manifest digest and expiry. CMS imports and verifies the completed signature
+  against current metadata before publishing.
+- A separate PostgreSQL stores immutable payloads, idempotent request identities,
+  expiry and audit. Row locks coordinate replicas; result and audit commit before
+  a signature is returned. Provider signing is outside the DB transaction's
+  rollback boundary, so retries may issue another signing call after a DB failure.
+- Reeva stores the verified manifest snapshot alongside its signature. Signed-only
+  public eligibility compares it with current metadata in SQL, closing stale
+  signature-save races and changes to related metadata. DTO envelopes also check
+  preloaded metadata against the snapshot. Exact-count overhead at 100,000 rows
+  is measured in verification; no indexed revision scheme is claimed.
+- Compose provides software custody with manual vault initialization/unseal.
+  Default PostgreSQL/OpenBao nodes are single instances; signer replicas are
+  supported but are not cryptographic threshold signing or independent-host HA.
+  Hardware custody, FROST, TUF freshness, and client implementations remain
+  separate work. See [operations](signer-operations.md) and
+  [private-cloud design](private-cloud-signer.md).
+
 ## Target flow
 
 1. HTTP controllers validate public input and return stable status codes.

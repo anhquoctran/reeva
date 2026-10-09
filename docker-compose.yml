@@ -6,6 +6,8 @@ services:
         condition: service_healthy
       database-init:
         condition: service_completed_successfully
+      signer-secrets:
+        condition: service_completed_successfully
     build:
       context: .
       target: production
@@ -57,9 +59,14 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SIGNER_URL: https://signer:8443
+      SIGNER_CA_FILE: /app/signer-trust/ca.pem
+      SIGNER_REQUESTER_TOKEN_FILE: /app/signer-requester/token
     volumes:
       - reeva_storage:/app/storage
       - reeva_database_credentials:/app/secrets:ro
+      - signer_trust:/app/signer-trust:ro
+      - signer_requester:/app/signer-requester:ro
     restart: unless-stopped
     healthcheck:
       test:
@@ -108,8 +115,152 @@ services:
       retries: 12
       start_period: 10s
 
+  signer-secrets:
+    image: ${COMPOSE_PROJECT_NAME:-reeva}-signer-admin
+    build:
+      context: .
+      dockerfile: signer/docker/Admin.Dockerfile
+    user: '0'
+    entrypoint: ['sh', '/tools/init-secrets.sh']
+    volumes:
+      - signer_authority:/authority
+      - signer_tls:/signer-tls
+      - bao_tls:/bao-tls
+      - signer_trust:/trust
+      - signer_auth:/auth
+      - signer_requester:/requester
+      - signer_approver:/approver
+      - signer_db_secret:/db-secret
+      - signer_db_admin:/db-admin
+      - signer_operator:/operator
+      - bao_client:/bao-client
+      - signer_artifacts:/artifacts
+    restart: 'no'
+
+  signer:
+    image: ${COMPOSE_PROJECT_NAME:-reeva}-signer
+    build:
+      context: ./signer
+    depends_on:
+      signer-secrets:
+        condition: service_completed_successfully
+      signer-postgres:
+        condition: service_healthy
+    networks: [default, custody]
+    volumes:
+      - signer_tls:/tls:ro
+      - signer_trust:/trust:ro
+      - signer_auth:/auth:ro
+      - signer_db_secret:/db-secret:ro
+      - bao_client:/bao-client:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    restart: unless-stopped
+    stop_grace_period: 25s
+    healthcheck:
+      # Liveness permits the app to start while the operator initializes/unseals
+      # custody. /ready is stricter and fails closed until custody is usable.
+      test: ['CMD', 'curl', '--fail', '--silent', '--cacert', '/trust/ca.pem', 'https://localhost:8443/health']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  signer-postgres:
+    image: postgres:17-alpine
+    depends_on:
+      signer-secrets:
+        condition: service_completed_successfully
+    networks: [custody]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: signer
+      POSTGRES_PASSWORD_FILE: /run/signer-admin/password
+    volumes:
+      - signer_postgres:/var/lib/postgresql/data
+      - signer_db_secret:/run/signer-db:ro
+      - signer_db_admin:/run/signer-admin:ro
+      - ./signer/docker/postgres-init.sh:/docker-entrypoint-initdb.d/10-signer.sh:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d signer']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  openbao:
+    image: openbao/openbao:2.7.0
+    depends_on:
+      signer-secrets:
+        condition: service_completed_successfully
+    command: ['server']
+    networks: [custody]
+    environment:
+      BAO_ADDR: https://localhost:8200
+      BAO_CACERT: /trust/ca.pem
+    volumes:
+      - bao_data:/openbao/file
+      - bao_tls:/bao-tls:ro
+      - signer_trust:/trust:ro
+      - ./signer/docker/openbao.hcl:/openbao/config/reeva.hcl:ro
+    restart: unless-stopped
+    healthcheck:
+      # Sealed/uninitialized is a valid operator-managed state, not a crash.
+      test: ['CMD-SHELL', 'bao status >/dev/null 2>&1; status=$$?; [ "$$status" -eq 0 ] || [ "$$status" -eq 2 ]']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  signer-admin:
+    image: ${COMPOSE_PROJECT_NAME:-reeva}-signer-admin
+    build:
+      context: .
+      dockerfile: signer/docker/Admin.Dockerfile
+    profiles: [tools]
+    networks: [default, custody]
+    volumes:
+      - signer_trust:/trust:ro
+      - signer_approver:/approver:ro
+      - signer_artifacts:/artifacts
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+
+  signer-operator:
+    image: ${COMPOSE_PROJECT_NAME:-reeva}-signer-admin
+    build:
+      context: .
+      dockerfile: signer/docker/Admin.Dockerfile
+    profiles: [tools]
+    networks: [custody]
+    volumes:
+      - signer_trust:/trust:ro
+      - signer_operator:/operator
+      - bao_client:/bao-client
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+
+networks:
+  custody:
+    internal: true
+
 volumes:
   reeva_storage:
   reeva_postgres:
   reeva_database_credentials:
   reeva_postgres_admin:
+  signer_authority:
+  signer_tls:
+  bao_tls:
+  signer_trust:
+  signer_auth:
+  signer_requester:
+  signer_approver:
+  signer_db_secret:
+  signer_db_admin:
+  signer_postgres:
+  signer_operator:
+  bao_client:
+  bao_data:
+  signer_artifacts:

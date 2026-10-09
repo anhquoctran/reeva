@@ -118,12 +118,45 @@ router
         router
           .post('/artifacts/:id/publish', [ArtifactsController, 'publish'])
           .as('cms.artifacts.publish')
+        router
+          .post('/artifacts/:id/signature', [ArtifactsController, 'sign'])
+          .as('cms.artifacts.signature')
+        router
+          .post('/artifacts/:id/managed-signature/request', [
+            ArtifactsController,
+            'requestManagedSignature',
+          ])
+          .as('cms.artifacts.managed-signature.request')
+        router
+          .post('/artifacts/:id/managed-signature/import', [
+            ArtifactsController,
+            'importManagedSignature',
+          ])
+          .as('cms.artifacts.managed-signature.import')
 
         router
           .group(() => {
             router.get('/software', [SoftwareController, 'index']).as('cms.software.index')
             router.post('/software', [SoftwareController, 'store']).as('cms.software.store')
             router.post('/software/:id', [SoftwareController, 'update']).as('cms.software.update')
+            router
+              .post('/software/:id/signing-keys', [SoftwareController, 'addSigningKey'])
+              .as('cms.software.signing-keys.store')
+            router
+              .post('/software/:id/managed-signing-key', [
+                SoftwareController,
+                'importManagedSigningKey',
+              ])
+              .as('cms.software.managed-signing-key')
+            router
+              .post('/software/:id/signing-keys/:keyId/revoke', [
+                SoftwareController,
+                'revokeSigningKey',
+              ])
+              .as('cms.software.signing-keys.revoke')
+            router
+              .post('/software/:id/signed-updates', [SoftwareController, 'setSignedUpdates'])
+              .as('cms.software.signed-updates')
             router
               .post('/software/:id/toggle', [SoftwareController, 'toggle'])
               .as('cms.software.toggle')

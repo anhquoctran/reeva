@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { verifySignerStack } from './verify_signer_stack.mjs'
 
 const source = process.cwd()
 const listing = spawnSync('git', ['ls-files', '-co', '--exclude-standard', '-z'], {
@@ -34,7 +35,7 @@ function compose(args, { check = true, inherit = false } = {}) {
     env,
     encoding: 'utf8',
     stdio: inherit ? 'inherit' : 'pipe',
-    timeout: 300000,
+    timeout: 600000,
   })
   if (check && result.status !== 0)
     throw new Error(
@@ -50,7 +51,13 @@ async function ready() {
       .split('\n')
       .filter(Boolean)
       .map((row) => JSON.parse(row))
-    if (rows.length === 2 && rows.every((row) => row.Health === 'healthy')) return
+    const services = ['app', 'postgres', 'signer', 'signer-postgres', 'openbao']
+    if (
+      services.every((service) =>
+        rows.some((row) => row.Service === service && row.Health === 'healthy')
+      )
+    )
+      return
     await new Promise((resolve) => setTimeout(resolve, 1000))
   }
   throw new Error('Disposable Compose services did not become healthy. Inspect their startup logs.')
@@ -103,7 +110,7 @@ try {
     ).status,
     200
   )
-  assert.equal(sql('SELECT count(*) FROM adonis_schema'), '29')
+  assert.equal(sql('SELECT count(*) FROM adonis_schema'), '30')
   assert.equal(
     sql(
       "SELECT rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls FROM pg_roles WHERE rolname='reeva'"
@@ -117,6 +124,7 @@ try {
   compose(['restart', 'postgres', 'app'])
   await ready()
   assert.equal(sql("SELECT value FROM settings WHERE key='compose_test_persistence'"), 'retained')
+  await verifySignerStack(compose)
   assert.equal(credentialFingerprint(), fingerprint)
   await writeFile(join(directory, '.env'), 'DB_CONNECTION=mysql\nDB_HOST=localhost\nDB_PORT=3306\n')
   compose(['up', '-d', '--build'])
@@ -135,11 +143,19 @@ try {
   )
   assert.equal(sql("SELECT value FROM settings WHERE key='compose_test_persistence'"), 'retained')
   console.log(
-    `Compose passed: one-command startup/default container port 8888 (temporary host port ${publishedPort}), healthy PostgreSQL/app, 29 migrations, nonsuperuser role, persistent data/key/password, legacy DB overrides ignored.`
+    `Compose passed: one-command startup/default container port 8888 (temporary host port ${publishedPort}), healthy PostgreSQL/app/signer, 30 migrations, nonsuperuser roles, persistent data/key/password, legacy DB overrides ignored.`
   )
+} catch (error) {
+  // Only the randomly named synthetic custody services are inspected.
+  console.error(compose(['logs', '--tail=80', 'openbao', 'signer'], { check: false }))
+  throw error
 } finally {
   // Only this script's randomly named synthetic project is removed.
   compose(['down', '-v'], { check: false })
-  spawnSync('docker', ['image', 'rm', `${project}-app`], { env, stdio: 'ignore' })
+  spawnSync(
+    'docker',
+    ['image', 'rm', `${project}-app`, `${project}-signer`, `${project}-signer-admin`],
+    { env, stdio: 'ignore' }
+  )
   await rm(directory, { recursive: true, force: true })
 }

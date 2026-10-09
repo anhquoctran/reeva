@@ -91,5 +91,73 @@
         </div>
       </form>
     </div>
+
+    @if(managedSignerConfigured && signingPayload)
+      <div class="card-premium p-8 space-y-4">
+        <h2 class="text-lg font-bold text-gray-900">Managed release signing</h2>
+        <p class="text-xs text-gray-500">Request a signature, then have an independent signer operator review the manifest and verify the build artifact. Approval cannot be performed from Reeva.</p>
+        @if(managedSignerError)
+          <p class="text-sm text-red-600">{{ managedSignerError }}</p>
+        @end
+        @if(managedSigningRequest)
+          <p class="text-xs">Status: <strong>{{ managedSigningRequest.status }}</strong></p>
+          <p class="font-mono text-xs break-all">Request: {{ managedSigningRequest.id }}</p>
+          <p class="font-mono text-xs break-all">Manifest digest: {{ managedSigningRequest.payloadDigest }}</p>
+        @end
+        <div class="flex gap-3">
+          <form action="{{ route('cms.artifacts.managed-signature.request', { id: artifact.id }) }}" method="POST">
+            {{ csrfField() }}
+            <button class="btn-primary px-5">Request managed signature</button>
+          </form>
+          @if(managedSigningRequest && managedSigningRequest.status === 'signed')
+            <form action="{{ route('cms.artifacts.managed-signature.import', { id: artifact.id }) }}" method="POST">
+              {{ csrfField() }}
+              <button class="btn-primary px-5">Import approved signature</button>
+            </form>
+          @end
+        </div>
+      </div>
+    @end
+
+    @if(signingKeys.length)
+      <div class="card-premium p-8 space-y-5">
+        <div>
+          <h2 class="text-lg font-bold text-gray-900">Release signature</h2>
+          <p class="text-xs text-gray-500 mt-1">The payload binds this product, version, channel, target, filename, size, changelog, and SHA-256. Sign it outside Reeva, then submit the detached Ed25519 signature here.</p>
+        </div>
+
+        @if(signingPayload)
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Manifest to review</label>
+            <pre class="max-h-64 overflow-auto rounded-xl bg-slate-950 p-4 text-[10px] leading-relaxed text-slate-100">{{ signingManifestJson }}</pre>
+            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Exact manifest bytes, base64url</label>
+            <textarea readonly rows="3" class="input-base w-full font-mono text-[10px]">{{ signingPayload }}</textarea>
+            <p class="text-[10px] text-gray-500">Run <code>node scripts/ota_signing.mjs sign --payload-base64url &lt;base64url&gt; --private-key &lt;private-key.pem&gt;</code> on a trusted signing workstation. Do not copy the private key to this server.</p>
+          </div>
+
+          <form action="{{ route('cms.artifacts.signature', { id: artifact.id }) }}" method="POST" class="space-y-3 border-t border-gray-100 pt-5">
+            {{ csrfField() }}
+            <label class="block space-y-1">
+              <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Signing key</span>
+              <select name="keyId" class="input-base w-full" required>
+                @each(key in signingKeys)
+                  <option value="{{ key.keyId }}" {{ artifact.signatureKeyId === key.keyId ? 'selected' : '' }}>{{ key.keyId }}</option>
+                @end
+              </select>
+            </label>
+            <label class="block space-y-1">
+              <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Detached signature (base64url)</span>
+              <textarea name="signature" rows="2" maxlength="100" class="input-base w-full font-mono text-xs" placeholder="Output from ota_signing.mjs" required></textarea>
+            </label>
+            <div class="flex items-center justify-between gap-4">
+              <p class="text-[10px] text-gray-500">Current signature key: {{ artifact.signatureKeyId || 'none' }}</p>
+              <button class="btn-primary px-6">Verify and save signature</button>
+            </div>
+          </form>
+        @else
+          <p class="text-sm text-red-600">This artifact is missing a valid SHA-256 or size. It cannot be signed until the metadata is repaired.</p>
+        @end
+      </div>
+    @end
   </div>
 @end

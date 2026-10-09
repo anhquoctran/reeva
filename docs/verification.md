@@ -62,7 +62,7 @@ The benchmark output is machine-dependent and should be rerun on deployment hard
 - MySQL migration schema behavior is checked using MySQL 8.4.11 in a disposable service and random temporary schema. The full historical reset path, application query plans, concurrent quota/auth writes, production locking behavior, and upgrade from a production-like MySQL dataset were not checked. Do not infer full MySQL runtime verification from this migration test.
 - AWS S3, OCI, R2, live MinIO, SMTP, reverse proxy, production credentials, and cloud IAM were not available. A disposable SeaweedFS S3 gateway integration run is recorded below; this proves only that target image/configuration, not other vendors or versions. MinIO image retrieval was blocked by Docker Hub `access denied` and Quay `unauthorized`, so no MinIO server integration claim is made.
 - A crash after writing an object but before database completion can leave an expiring reservation/object. Upload attempts to the same provider retry cleanup; if that provider remains unused or unavailable, storage lifecycle/operator cleanup is still required.
-- There is no release signing protocol in the existing OTA client contract. The server returns checksums, but client-side signature enforcement and signing-key operations were outside the available code contract and remain a product/deployment decision.
+- At the original audit baseline there was no release signing protocol. The follow-up implementation and its verification status are recorded below; no OTA client source is present here, so client-side signature enforcement remains an integration requirement.
 - No production deploy, push, or existing/user database change was performed. The MySQL migration check dropped only its randomly named temporary schema; the HTTP smoke container used temporary storage and was removed.
 
 ## Default HTTP port change (2026-10-03)
@@ -82,6 +82,13 @@ The requested `82905` is outside the valid TCP/UDP port range. Reeva now default
 | Compose runtime smoke                         | Pass after fresh SQLite migrations and seed; `GET /login` returned `200` at `127.0.0.1:8888`. Temporary project, named volume, and override file were removed.          |
 
 No port-specific performance benchmark was run because this configuration change does not alter request handling or data paths; no performance improvement is claimed. There is no database, OTA-client, or API contract change. The externally visible deployment default changes from Compose host port 80/container 3333 to 8888/8888; operators that require a different port must configure `PORT` and set `APP_URL` consistently. No production deployment or push was performed.
+
+## OTA signed release manifests (2026-10-08)
+
+- Added an additive PostgreSQL migration for per-software Ed25519 public keys, artifact signatures, and an opt-in signed-only policy. Existing products default to optional signatures; no existing release is automatically republished or removed.
+- Reeva now exposes the exact signed payload bytes with a detached signature and key ID. CMS validates signatures before saving and enabling signed-only publication; metadata edits invalidate the prior signature. The private key remains outside the Reeva server and database.
+- Node 24.11.0 / pnpm 11.20.0 typecheck, lint, production build and full regression tests pass; current detailed signer verification is recorded below. Signature regressions exercise signed-only publication, revoked/foreign keys, changed metadata, and malicious provider envelopes.
+- The new migration was exercised on disposable fresh and seeded upgrade PostgreSQL databases, including rollback/reapply. No existing deployment database was migrated. No client app is in this repository, so pinned-key verification, download hashing before install and rollback handling still require integration in each OTA client. The manifest protocol does not include TUF-style expiry/freeze detection.
 
 ## Docker Compose one-command startup (2026-10-03)
 
@@ -278,3 +285,103 @@ Toolchain for this pass: Node **24.11.0**, pnpm **11.20.0**, macOS and Docker De
 The additive config migration requires old complete `S3_*` settings only if upgrading a database that contains the legacy environment-backed provider row; new databases need no S3 environment variables. After a successful migration, remove those legacy values. All instances sharing PostgreSQL must keep the same durable `APP_KEY`; changing it without re-encrypting rows makes provider settings unreadable. Rolling the encryption migration down intentionally decrypts provider JSON for the old runtime format, so protect the database and backups during an explicitly chosen downgrade. Editing an existing provider's endpoint or bucket does not move its objects; preserve those keys or use a separate provider for new uploads. No live cloud bucket or production credentials were used in this pass. The current existing Reeva container on host port 8888 was observed but preserved; the isolated Compose check used a temporary host mapping.
 
 No dedicated before/after latency benchmark was run for the provider-config CRUD or database lookup path in this pass; no performance improvement is claimed. The recorded OTA and stream benchmarks in the PostgreSQL baseline section cover separate query and data-transfer workloads.
+
+## Rust managed signer / OpenBao (2026-10-08)
+
+Toolchain: Node **24.11.0**, pnpm **11.20.0**, Rust **1.98.1**, Docker Desktop,
+PostgreSQL **17**, OpenBao **2.7.0**. All signing keys, credentials, artifacts and
+databases used below were synthetic and isolated. The repository `.env`,
+existing Reeva container/volumes and concurrent user pagination edits were
+preserved. No production deployment, commit or push was performed.
+
+| Command/check | Result |
+| --- | --- |
+| `cargo fmt --manifest-path signer/Cargo.toml --check` | Pass. |
+| `cargo clippy --manifest-path signer/Cargo.toml --locked --all-targets -- -D warnings` | Pass. |
+| `cargo test --manifest-path signer/Cargo.toml --locked` | 4 passed: strict manifest/context validation, role/request identity, unauthorized approval/read rejection, request deadline/capacity release. |
+| `cargo audit --file signer/Cargo.lock` | Pass, 241 locked dependencies, no reported vulnerabilities in the 1,295-advisory RustSec snapshot. |
+| `pnpm typecheck`, `pnpm lint`, `pnpm build` | Pass, including the compiled managed signer consumer and Vite assets. |
+| `pnpm test` | **39 passed, 2 skipped**. Includes signatures, signed-only/revoked-key public eligibility, stale/foreign metadata, provider-envelope substitution, proxy-prefix and deep-copy regressions. Optional real S3 and production-root-seed cases skip in the regular suite; root seeding runs and passes in the production smoke. |
+| `pnpm verify:migration-upgrade` | Pass: 30 fresh migrations, seeded additive upgrade, rollback and reapply. Existing synthetic IDs/metadata preserved; signature policy defaults false and public-key table starts empty. |
+| `pnpm verify:production-smoke` | Pass on compiled app, disposable PostgreSQL, Chromium CSRF/root login and CMS/API pages. Cookie sessions and a separate `REEVA_SMOKE_SESSION_DRIVER=database` run both pass. Used ports 18890/18891 to preserve the existing host-8888 app. |
+| `pnpm verify:dependencies` | Pass: 0 unresolved advisories, 1 existing locally mitigated `braces` advisory. New proxy-addr/source-map-js/fast-copy advisories fixed via lock and minimum overrides; raw audit is still not entirely clean because of the reported patched braces version. |
+| `node scripts/verify_signer_compose.mjs` | Pass against real isolated OpenBao and signer PostgreSQL without building Reeva; this does not replace the compiled-consumer check below. |
+| `pnpm verify:docker-compose` | Pass: exact `docker compose up -d --build` in an isolated source copy, healthy app/custody processes, port 8888 internally with ephemeral host mapping, 30 migrations, nonsuperuser DB roles, persistent DB/password/APP_KEY and signing-key identity. Exercises verified TLS, requester/approver/operator separation, denied key export, independently verified Ed25519 signatures, duplicate request/approval, eight simultaneous approvals producing one result/audit, expiry/renewal and stale approval, DB audit failure after real provider signing, atomic result/audit, root-token retirement, two signer replicas, seal/restart/unseal recovery and the compiled Reeva consumer. |
+| Script syntax, OpenAPI JSON parsing, `git diff --check`, `git ls-files -u` | Pass; no unresolved index conflicts, actual private keys, recovery shares or generated secret files in the change set. |
+
+One intermediate OpenBao initialization failed because Raft had not yet become
+active immediately after unseal. The operator tool now waits for the active
+leader; subsequent fresh initialization and restart recovery pass. One build
+observed concurrently incomplete user pagination edits; those edits were
+preserved and subsequent application build/typecheck/lint/smoke passed after
+the edits were complete. A temporary PostgreSQL startup check also failed under
+concurrent build load; final fresh/upgrade and full test reruns pass.
+
+### Contract, migrations, recovery and limits
+
+- Additive Reeva migration `1777400000000` introduces public-key metadata,
+  signatures, verified JSONB manifest snapshots and opt-in signed-only policy.
+  Signed-only public reads compare the saved snapshot with current metadata in
+  SQL, including relation names, so an edit racing a signature save cannot
+  restore public eligibility with a stale signature. API envelopes also reject
+  snapshots that disagree with preloaded metadata. Existing products/releases stay
+  optional until deliberately signed and enabled. OTA envelopes are additive;
+  clients must pin trusted public keys and enforce context/hash/size before
+  install. Sending a public key to Reeva is not authentication.
+- Signer request/audit state lives in its own PostgreSQL database. Startup DDL
+  is advisory-locked across replicas. A failed DB commit can cause a repeated
+  OpenBao sign operation, but no result is exposed before durable audit/result
+  commit. Signature-request expiry is not signed update freshness.
+- Back up databases and custody before upgrade. Rolling the signature migration
+  down removes signature/public-key/policy metadata; it is an explicit downgrade
+  that weakens server policy, not a safe way to repair custody. Restore a matching
+  application and verified backup when preserving signed-only enforcement.
+  Do not delete production Compose volumes. OpenBao restart deliberately requires
+  operator unseal; existing signatures/releases remain available.
+- This is software-backed, single-host default custody, not an HSM, FROST,
+  complete KMS replacement, independent-host HA, or absolute private-key secrecy.
+  Root/hypervisor administrators and an unsealed OpenBao compromise remain
+  trusted risks. Temporary recovery shares must move to offline independent
+  custodians. Real offline-custody ceremonies, restore drills, certificate/token
+  rotation, hardware integration, remote CI execution and OTA client code were
+  not exercised. Liveness health does not mean a vault is ready to sign.
+- No HTTP throughput/RSS benchmark was run for the new signer. It introduces
+  a new approval path without an equivalent previous signer workload. Bodies,
+  response sizes and per-replica concurrency are bounded in code; those limits
+  are not measured deployment capacity. Prior OTA benchmarks above apply to
+  their dated workload, not the new signature predicate.
+
+### Signature eligibility query overhead
+
+Command: `node scripts/benchmark_ota_signatures.mjs` under Node 24.11.0.
+Disposable PostgreSQL 17, **100,000 identical synthetic release rows** for both
+variants, same indexes, 3 warmups and 25 alternating samples. The current
+manifest comparison is read directly from production source. Correlated
+`EXISTS` and optional-policy `OR` follow the production signing predicate.
+These are focused SQL measurements; other public lifecycle filters, UUIDs,
+HTTP, Lucid preloads and actual cryptographic operations are outside this
+fixture. Synthetic signatures test presence only. Both variants return the
+same result rows; the reference lacks the new stale-metadata protection.
+
+| Operation | Presence-only p50/p95 ms | Snapshot p50/p95 ms | Queries / result rows |
+| --- | --- | --- | --- |
+| Latest | 1.011 / 2.553 | 1.178 / 4.668 | 1 / 1 |
+| Exact count | 116.348 / 183.471 | 739.624 / 979.446 | 1 / 1 aggregate |
+| First 20-row page | 0.749 / 0.889 | 1.018 / 1.261 | 1 / 20 |
+
+The full count is slower because every candidate's snapshot is compared with
+current metadata, including related targets. No speedup is claimed. Deployments
+with large release histories must budget this cost; an indexed revision scheme
+would require atomic invalidation for every related metadata mutation and is
+not implemented here. The current predicate is retained for correct eligibility.
+Local services were also running; repeat on deployment hardware before setting
+an SLA. An initial experiment flattened the predicate onto top-level joins,
+making PostgreSQL choose an expensive plan even for latest/page. That query
+shape was not the production call site; the retained script uses the correlated
+production signing shape. The release dataset was not reduced to hide count
+cost. RSS/throughput and production-size payload variation were not measured.
+
+See [signer operations](signer-operations.md) for initialization, separate
+approval, root retirement, seal recovery and production trust boundaries. CI now
+runs Rust formatting/clippy/tests/advisories and full Compose verification; the
+hosted workflow has not run in this local task.

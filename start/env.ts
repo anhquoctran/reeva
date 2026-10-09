@@ -71,6 +71,9 @@ const env = await Env.create(new URL('../', import.meta.url), {
   SMTP_SECURE: Env.schema.boolean.optional(),
   TRUSTED_PROXIES: Env.schema.string.optional(),
   MAX_UPLOAD_SIZE: Env.schema.string.optional(),
+  SIGNER_URL: Env.schema.string.optional(),
+  SIGNER_CA_FILE: Env.schema.string.optional(),
+  SIGNER_REQUESTER_TOKEN_FILE: Env.schema.string.optional(),
   ADMIN_EMAIL: Env.schema.string.optional(),
   ADMIN_PASSWORD: Env.schema.string.optional(),
 })

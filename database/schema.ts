@@ -39,6 +39,9 @@ export class ArtifactSchema extends BaseModel {
     'mimeType',
     'platformId',
     'publishedAt',
+    'signature',
+    'signatureKeyId',
+    'signatureManifest',
     'sizeBytes',
     'storageKey',
     'storageProviderId',
@@ -79,6 +82,13 @@ export class ArtifactSchema extends BaseModel {
   declare platformId: string
   @column.dateTime()
   declare publishedAt: DateTime | null
+  @column()
+  declare signature: string | null
+  @column()
+  declare signatureKeyId: string | null
+
+  @column()
+  declare signatureManifest: any
   @column()
   declare sizeBytes: bigint | number | null
   @column()
@@ -289,6 +299,7 @@ export class SoftwareSchema extends BaseModel {
     'isActive',
     'isDefault',
     'name',
+    'requireSignedUpdates',
     'slug',
     'updatedAt',
   ] as const
@@ -304,7 +315,36 @@ export class SoftwareSchema extends BaseModel {
   @column()
   declare name: string
   @column()
+  declare requireSignedUpdates: boolean
+  @column()
   declare slug: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+}
+
+export class SoftwareSigningKeySchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'id',
+    'isActive',
+    'keyId',
+    'publicKey',
+    'softwareId',
+    'updatedAt',
+  ] as const
+  $columns = SoftwareSigningKeySchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: string
+  @column()
+  declare isActive: boolean
+  @column()
+  declare keyId: string
+  @column()
+  declare publicKey: string
+  @column()
+  declare softwareId: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
 }

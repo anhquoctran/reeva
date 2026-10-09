@@ -14,6 +14,13 @@ import Artifact from '#models/artifact'
 import StorageProvider from '#models/storage_provider'
 import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
+import SoftwareSigningKey from '#models/software_signing_key'
+import ManagedSignerService, { type ManagedSigningRequest } from '#services/managed_signer_service'
+import {
+  createOtaReleaseManifestJson,
+  createOtaReleasePayload,
+  verifyOtaReleaseSignature,
+} from '#services/ota_release_signature_service'
 
 export function artifactDetailsDto(artifact: Artifact) {
   return {
@@ -359,6 +366,14 @@ export default class ArtifactService {
     if (!version.software?.isActive) {
       throw new Error('Cannot upload an artifact for inactive software.')
     }
+    if (
+      (data.isPublished === 'on' || data.isPublished === true) &&
+      version.software.requireSignedUpdates
+    ) {
+      throw new Error(
+        'Upload this artifact as a draft, sign its release manifest, then publish it.'
+      )
+    }
     const fileName = this.buildFileName(
       version.software.name,
       platform.name,
@@ -441,8 +456,13 @@ export default class ArtifactService {
   }
 
   async getEditData(id: string | number) {
-    const artifact = await Artifact.findOrFail(id)
-    const [versions, platforms, architectures] = await Promise.all([
+    const artifact = await Artifact.query()
+      .where('id', id)
+      .preload('version', (query) => query.preload('software'))
+      .preload('platform')
+      .preload('architecture')
+      .firstOrFail()
+    const [versions, platforms, architectures, signingKeys] = await Promise.all([
       this.versionRepository
         .query()
         .preload('software')
@@ -451,8 +471,47 @@ export default class ArtifactService {
         .orderBy('patch', 'desc'),
       this.platformRepository.query().orderBy('name', 'asc'),
       this.architectureRepository.query().orderBy('name', 'asc'),
+      SoftwareSigningKey.query()
+        .where('softwareId', artifact.version.softwareId)
+        .where('isActive', true)
+        .orderBy('createdAt', 'asc'),
     ])
-    return { artifact, versions, platforms, architectures }
+    let signingPayload: string | null = null
+    let signingManifestJson: string | null = null
+    try {
+      signingPayload = createOtaReleasePayload(artifact)
+      signingManifestJson = createOtaReleaseManifestJson(artifact)
+    } catch {
+      // The CMS still needs to let operators correct incomplete legacy metadata.
+    }
+    const managedSigner = new ManagedSignerService()
+    let managedSigningRequest: ManagedSigningRequest | null = null
+    let managedSignerError: string | null = null
+    if (managedSigner.configured && signingPayload) {
+      try {
+        const key = await managedSigner.getKey(artifact.version.software.slug)
+        if (!signingKeys.some((candidate) => candidate.keyId === key.keyId)) {
+          managedSignerError =
+            'Register this product’s managed signer public key in Software first.'
+        } else {
+          managedSigningRequest = await managedSigner.getRequest(key, signingPayload)
+        }
+      } catch (error) {
+        managedSignerError = error instanceof Error ? error.message : 'Managed signer unavailable.'
+      }
+    }
+    return {
+      artifact,
+      versions,
+      platforms,
+      architectures,
+      signingKeys,
+      signingPayload,
+      signingManifestJson,
+      managedSignerConfigured: managedSigner.configured,
+      managedSigningRequest,
+      managedSignerError,
+    }
   }
 
   async updateArtifact(id: string | number, data: any) {
@@ -499,6 +558,9 @@ export default class ArtifactService {
       isArchived: data.isArchived === 'on' || data.isArchived === true,
       fileName: newFileName,
       channel: data.channel,
+      signature: null,
+      signatureKeyId: null,
+      signatureManifest: null,
     })
 
     await artifact.save()
@@ -512,7 +574,12 @@ export default class ArtifactService {
   }
 
   async publishArtifact(id: string | number) {
-    const artifact = await Artifact.findOrFail(id)
+    const artifact = await Artifact.query()
+      .where('id', id)
+      .preload('version', (query) => query.preload('software'))
+      .preload('platform')
+      .preload('architecture')
+      .firstOrFail()
 
     if (artifact.isPublished) {
       throw new Error('Artifact is already published.')
@@ -522,9 +589,100 @@ export default class ArtifactService {
     if (artifact.isArchived) {
       throw new Error('Archived artifacts cannot be published. Unarchive the artifact first.')
     }
+    if (artifact.version.software.requireSignedUpdates) {
+      await this.assertValidReleaseSignature(artifact)
+    }
     artifact.publishedAt = DateTime.now()
     await artifact.save()
     return artifact
+  }
+
+  async setArtifactSignature(id: string | number, keyIdInput: unknown, signatureInput: unknown) {
+    const artifact = await Artifact.query()
+      .where('id', id)
+      .preload('version', (query) => query.preload('software'))
+      .preload('platform')
+      .preload('architecture')
+      .firstOrFail()
+    const keyId = typeof keyIdInput === 'string' ? keyIdInput.trim() : ''
+    const signature = typeof signatureInput === 'string' ? signatureInput.trim() : ''
+    if (!/^[a-f0-9]{64}$/.test(keyId)) throw new Error('Invalid signing key identifier.')
+
+    const signingKey = await SoftwareSigningKey.query()
+      .where('softwareId', artifact.version.softwareId)
+      .where('keyId', keyId)
+      .where('isActive', true)
+      .first()
+    if (!signingKey) throw new Error('The selected signing key is not active for this software.')
+
+    const payload = createOtaReleasePayload(artifact)
+    if (!verifyOtaReleaseSignature(payload, signature, signingKey.publicKey)) {
+      throw new Error(
+        'Signature verification failed. Sign the current manifest payload with the matching Ed25519 private key.'
+      )
+    }
+
+    artifact.signature = signature
+    artifact.signatureKeyId = keyId
+    artifact.signatureManifest = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))
+    await artifact.save()
+    return artifact
+  }
+
+  async requestManagedSignature(id: string | number) {
+    const artifact = await Artifact.query()
+      .where('id', id)
+      .preload('version', (query) => query.preload('software'))
+      .preload('platform')
+      .preload('architecture')
+      .firstOrFail()
+    const signer = new ManagedSignerService()
+    const key = await signer.getKey(artifact.version.software.slug)
+    const registered = await SoftwareSigningKey.query()
+      .where('softwareId', artifact.version.softwareId)
+      .where('keyId', key.keyId)
+      .where('isActive', true)
+      .first()
+    if (!registered) throw new Error('Register the managed public key for this software first.')
+    return signer.createRequest(key, createOtaReleasePayload(artifact))
+  }
+
+  async importManagedSignature(id: string | number) {
+    const artifact = await Artifact.query()
+      .where('id', id)
+      .preload('version', (query) => query.preload('software'))
+      .preload('platform')
+      .preload('architecture')
+      .firstOrFail()
+    const signer = new ManagedSignerService()
+    const key = await signer.getKey(artifact.version.software.slug)
+    const request = await signer.getRequest(key, createOtaReleasePayload(artifact))
+    if (!request || request.status !== 'signed' || !request.signature) {
+      throw new Error('This manifest has not been independently approved and signed.')
+    }
+    // Reload metadata in the ordinary verification path so stale approvals fail.
+    return this.setArtifactSignature(id, request.keyId, request.signature)
+  }
+
+  private async assertValidReleaseSignature(artifact: Artifact) {
+    if (!artifact.signature || !artifact.signatureKeyId) {
+      throw new Error('A valid release signature is required before publishing this artifact.')
+    }
+    const signingKey = await SoftwareSigningKey.query()
+      .where('softwareId', artifact.version.softwareId)
+      .where('keyId', artifact.signatureKeyId)
+      .where('isActive', true)
+      .first()
+    if (
+      !signingKey ||
+      !verifyOtaReleaseSignature(
+        createOtaReleasePayload(artifact),
+        artifact.signature,
+        signingKey.publicKey
+      )
+    ) {
+      throw new Error('The release signature is invalid or its signing key is inactive.')
+    }
   }
 
   async getDetails(id: string | number, page: number) {
@@ -591,6 +749,9 @@ export default class ArtifactService {
       }
 
       if (needsSave) {
+        artifact.signature = null
+        artifact.signatureKeyId = null
+        artifact.signatureManifest = null
         await artifact.save()
         updatedCount++
       }

@@ -3,7 +3,7 @@
   "info": {
     "title": "Reeva OTA Client API",
     "version": "1.0.0",
-    "description": "Public, read-only API for OTA clients to check for updates, list releases, and download artifacts. No authentication is required. Prefer software-scoped endpoints. Legacy endpoints without a software slug target the active default software product."
+    "description": "Public, read-only API for OTA clients to check for updates, list releases, and download artifacts. No authentication is required. Prefer software-scoped endpoints. Legacy endpoints without a software slug target the active default software product. Responses may include an Ed25519 signed manifest; clients must verify it with a pinned public key and verify artifact size and SHA-256 before installation."
   },
   "servers": [
     {
@@ -24,7 +24,7 @@
         "tags": ["OTA"],
         "operationId": "checkSoftwareForUpdate",
         "summary": "Check for an update for a software product",
-        "description": "Returns the newest published, non-archived artifact newer than the supplied client version for the selected platform, architecture, and channel. Returns 204 when there is no update.",
+        "description": "Returns the newest published, non-archived artifact newer than the supplied client version for the selected platform, architecture, and channel. If present, signedManifest.payload is the exact base64url-encoded UTF-8 JSON byte sequence signed with Ed25519. Verify it with a pinned key before trusting its fields, then verify downloaded size and SHA-256 before installation. Returns 204 when there is no update.",
         "parameters": [
           { "$ref": "#/components/parameters/SoftwareSlug" },
           { "$ref": "#/components/parameters/Platform" },
@@ -52,7 +52,7 @@
         "tags": ["OTA"],
         "operationId": "getLatestSoftwareRelease",
         "summary": "Get the latest release for a software product",
-        "description": "Returns the latest published, non-archived artifact for the selected platform, architecture, and channel. If currentVersion is supplied, hasUpdate indicates whether the latest release is newer.",
+        "description": "Returns the latest published, non-archived artifact for the selected platform, architecture, and channel. If present, signedManifest.payload is the exact base64url-encoded UTF-8 JSON byte sequence signed with Ed25519. Verify it with a pinned key before trusting its fields, then verify downloaded size and SHA-256 before installation. If currentVersion is supplied, hasUpdate indicates whether the latest release is newer.",
         "parameters": [
           { "$ref": "#/components/parameters/SoftwareSlug" },
           { "$ref": "#/components/parameters/Platform" },
@@ -79,7 +79,7 @@
         "tags": ["OTA"],
         "operationId": "listSoftwareReleases",
         "summary": "List releases for a software product",
-        "description": "Returns a newest-first, paginated list of published, non-archived artifacts for the selected platform, architecture, and channel. page defaults to 1; limit defaults to 20 and cannot exceed 100.",
+        "description": "Returns a newest-first, paginated list of published, non-archived artifacts for the selected platform, architecture, and channel. Each item may include an Ed25519 signedManifest that clients must verify against a pinned public key. page defaults to 1; limit defaults to 20 and cannot exceed 100.",
         "parameters": [
           { "$ref": "#/components/parameters/SoftwareSlug" },
           { "$ref": "#/components/parameters/Platform" },
@@ -268,6 +268,16 @@
           "error": { "type": "string", "description": "Human-readable error message." }
         }
       },
+      "SignedManifest": {
+        "type": ["object", "null"],
+        "description": "Optional signed OTA metadata. The payload is base64url-encoded compact UTF-8 JSON bytes; the signature is a 64-byte Ed25519 signature encoded as base64url; keyId is lowercase SHA-256 of the public key's DER SPKI bytes. Clients verify the decoded payload bytes directly and must not trust adjacent response fields before verification.",
+        "required": ["payload", "signature", "keyId"],
+        "properties": {
+          "payload": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$", "description": "Exact manifest bytes encoded as base64url." },
+          "signature": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$", "description": "Ed25519 detached signature encoded as base64url." },
+          "keyId": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 fingerprint of the signing public key." }
+        }
+      },
       "UpdateAvailable": {
         "type": "object",
         "required": ["version", "codename", "changelog", "channel", "downloadUrl", "md5", "sha1", "sha256", "sha512", "sizeBytes", "publishedAt"],
@@ -282,7 +292,8 @@
           "sha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
           "sha512": { "type": ["string", "null"], "pattern": "^[a-f0-9]{128}$" },
           "sizeBytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
-          "publishedAt": { "type": ["string", "null"], "format": "date-time" }
+          "publishedAt": { "type": ["string", "null"], "format": "date-time" },
+          "signedManifest": { "$ref": "#/components/schemas/SignedManifest" }
         }
       },
       "LatestRelease": {
@@ -299,7 +310,8 @@
           "sizeBytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
           "checksum": { "type": ["string", "null"], "description": "SHA-256 checksum in lowercase hexadecimal." },
           "hasUpdate": { "type": "boolean", "description": "True if currentVersion was omitted or the latest version is newer." },
-          "downloadUrl": { "type": "string", "format": "uri" }
+          "downloadUrl": { "type": "string", "format": "uri" },
+          "signedManifest": { "$ref": "#/components/schemas/SignedManifest" }
         }
       },
       "Release": {
@@ -317,7 +329,8 @@
           "sizeBytes": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
           "checksum": { "type": ["string", "null"], "description": "SHA-256 checksum in lowercase hexadecimal." },
           "publishedAt": { "type": ["string", "null"], "format": "date-time" },
-          "downloadUrl": { "type": "string", "format": "uri" }
+          "downloadUrl": { "type": "string", "format": "uri" },
+          "signedManifest": { "$ref": "#/components/schemas/SignedManifest" }
         }
       },
       "ReleasePage": {
